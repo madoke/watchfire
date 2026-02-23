@@ -231,7 +231,6 @@ jobs:
                     hardenedRuntime: true,
                     entitlements: path.join(process.cwd(), 'entitlements.mac.plist'),
                     'entitlements-inherit': path.join(process.cwd(), 'entitlements.mac.plist'),
-                    timestamp: true,
                   }),
                 });
                 console.log('Code signing complete.');
