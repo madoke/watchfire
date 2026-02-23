@@ -159,6 +159,11 @@ install: build
 		sudo xattr -dr com.apple.quarantine /usr/local/bin/$(CLI_BINARY) 2>/dev/null || true
 	@xattr -dr com.apple.quarantine /usr/local/bin/$(DAEMON_BINARY) 2>/dev/null || \
 		sudo xattr -dr com.apple.quarantine /usr/local/bin/$(DAEMON_BINARY) 2>/dev/null || true
+	@# Re-sign binaries after copy (macOS Gatekeeper may kill unsigned binaries in /usr/local/bin)
+	@codesign --sign - --force /usr/local/bin/$(CLI_BINARY) 2>/dev/null || \
+		sudo codesign --sign - --force /usr/local/bin/$(CLI_BINARY)
+	@codesign --sign - --force /usr/local/bin/$(DAEMON_BINARY) 2>/dev/null || \
+		sudo codesign --sign - --force /usr/local/bin/$(DAEMON_BINARY)
 	@echo "Installed:"
 	@$(BUILD_DIR)/$(CLI_BINARY) version
 	@$(BUILD_DIR)/$(DAEMON_BINARY) version
@@ -170,8 +175,14 @@ install-all: install install-gui
 # Build and install GUI app to /Applications (native arch only)
 NATIVE_ARCH := $(shell uname -m | sed 's/x86_64/x64/')
 install-gui: sync-version build build-gui
+	@# Create arch-suffixed copies that electron-builder's ${arch} substitution expects
+	@cp $(BUILD_DIR)/$(DAEMON_BINARY) $(BUILD_DIR)/$(DAEMON_BINARY)-$(NATIVE_ARCH)
+	@cp $(BUILD_DIR)/$(CLI_BINARY) $(BUILD_DIR)/$(CLI_BINARY)-$(NATIVE_ARCH)
+	@# Generate local config with native arch only (avoids universal build needing cross-compiled binaries)
+	@sed 's/arch: \[universal\]/arch: [$(NATIVE_ARCH)]/' gui/electron-builder.yml > gui/electron-builder.local.yml
 	@echo "Packaging Watchfire.app ($(NATIVE_ARCH)) for local install..."
-	cd gui && npx electron-builder --config electron-builder.yml --publish never --mac --$(NATIVE_ARCH) -c.mac.notarize=false
+	cd gui && npx electron-builder --config electron-builder.local.yml --publish never --mac -c.mac.notarize=false
+	@rm -f gui/electron-builder.local.yml
 	@echo "Installing Watchfire.app to /Applications..."
 	@APP_DIR=$$(ls -d gui/dist/mac-$(NATIVE_ARCH)/Watchfire.app 2>/dev/null | head -1); \
 	if [ -z "$$APP_DIR" ]; then echo "Error: Watchfire.app not found in gui/dist/"; exit 1; fi; \

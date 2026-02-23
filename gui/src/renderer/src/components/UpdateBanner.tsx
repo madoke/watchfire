@@ -60,7 +60,7 @@ export function UpdateBanner() {
       {state.status === 'downloading' && (
         <div className="flex-1 flex items-center gap-3">
           <span className="text-[var(--wf-text-secondary)]">Downloading update...</span>
-          <div className="flex-1 max-w-48 h-1.5 bg-[var(--wf-bg-tertiary)] rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-[var(--wf-bg-tertiary)] rounded-full overflow-hidden">
             <div
               className="h-full bg-fire-500 rounded-full transition-all duration-300"
               style={{ width: `${state.percent}%` }}
