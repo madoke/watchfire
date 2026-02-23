@@ -132,6 +132,7 @@ jobs:
     env:
       CSC_LINK: ${{ secrets.CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -211,8 +212,28 @@ jobs:
             }).then(() => console.log('Universal merge complete'))
               .catch(err => { console.error('Universal merge failed:', err.message); process.exit(1); });
           "
-          # Build DMG and zip from the universal app (this step handles signing + notarization)
-          npx electron-builder --config electron-builder.yml --publish never --prepackaged dist/mac-universal/Watchfire.app
+          # Sign the universal app with Developer ID certificate
+          if [ -n "$CODESIGN_IDENTITY" ]; then
+            echo "Signing universal app with Developer ID..."
+            codesign --sign "$CODESIGN_IDENTITY" --force --deep --options runtime --timestamp dist/mac-universal/Watchfire.app
+            codesign --verify --deep --strict dist/mac-universal/Watchfire.app
+            echo "Code signing verified."
+          fi
+          # Notarize the universal app
+          if [ -n "$APPLE_ID" ] && [ -n "$CODESIGN_IDENTITY" ]; then
+            echo "Submitting universal app for notarization..."
+            ditto -c -k --keepParent dist/mac-universal/Watchfire.app dist/mac-universal/Watchfire-notarize.zip
+            xcrun notarytool submit dist/mac-universal/Watchfire-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+            xcrun stapler staple dist/mac-universal/Watchfire.app
+            rm -f dist/mac-universal/Watchfire-notarize.zip
+            echo "Notarization complete."
+          fi
+          # Build DMG and zip from the universal app (skip re-signing and notarization — already done above)
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --publish never --prepackaged dist/mac-universal/Watchfire.app -c.mac.notarize=false
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4

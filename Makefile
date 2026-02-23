@@ -189,6 +189,7 @@ install-gui: sync-version build build-gui
 	rm -rf /Applications/Watchfire.app 2>/dev/null || sudo rm -rf /Applications/Watchfire.app; \
 	cp -R "$$APP_DIR" /Applications/Watchfire.app 2>/dev/null || \
 		sudo cp -R "$$APP_DIR" /Applications/Watchfire.app
+	@xattr -dr com.apple.quarantine /Applications/Watchfire.app 2>/dev/null || true
 	@echo "Watchfire.app installed to /Applications"
 
 # Remove installed binaries and app

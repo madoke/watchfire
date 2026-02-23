@@ -90,7 +90,7 @@ export function UpdateBanner() {
           <div className="flex-1 text-[var(--wf-text-secondary)] truncate">
             {state.message.includes('net::')
               ? 'Update check failed: no internet connection'
-              : 'Update check failed'}
+              : `Update failed: ${state.message}`}
           </div>
           <button onClick={() => setDismissed(true)} className="text-[var(--wf-text-muted)] hover:text-[var(--wf-text-primary)]">
             <X size={14} />
