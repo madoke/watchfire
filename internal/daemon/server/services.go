@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/posthog/posthog-go"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/watchfire-io/watchfire/internal/analytics"
 	"github.com/watchfire-io/watchfire/internal/config"
 	"github.com/watchfire-io/watchfire/internal/daemon/agent"
 	"github.com/watchfire-io/watchfire/internal/daemon/agent/prompts"
@@ -69,6 +71,7 @@ func (s *projectService) CreateProject(_ context.Context, req *pb.CreateProjectR
 	if err != nil {
 		return nil, err
 	}
+	analytics.Track("project_created", posthog.NewProperties().Set("origin", req.GetMeta().GetOrigin()))
 	return modelToProtoProject(pwe), nil
 }
 
@@ -112,6 +115,73 @@ func (s *projectService) DeleteProject(_ context.Context, req *pb.ProjectId) (*e
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (s *projectService) GetGitInfo(_ context.Context, req *pb.ProjectId) (*pb.GitInfo, error) {
+	index, err := config.LoadProjectsIndex()
+	if err != nil {
+		return nil, err
+	}
+	entry := index.FindProject(req.ProjectId)
+	if entry == nil {
+		return nil, fmt.Errorf("project not found: %s", req.ProjectId)
+	}
+
+	info := &pb.GitInfo{}
+
+	// Current branch
+	if out, err := runGit(entry.Path, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
+		info.CurrentBranch = out
+	}
+
+	// Remote URL
+	if out, err := runGit(entry.Path, "remote", "get-url", "origin"); err == nil {
+		// Strip protocol prefix for display
+		remote := out
+		remote = strings.TrimPrefix(remote, "https://")
+		remote = strings.TrimPrefix(remote, "http://")
+		remote = strings.TrimPrefix(remote, "git@")
+		remote = strings.TrimSuffix(remote, ".git")
+		remote = strings.Replace(remote, ":", "/", 1)
+		info.RemoteUrl = remote
+	}
+
+	// Dirty status
+	if out, err := runGit(entry.Path, "status", "--porcelain"); err == nil {
+		if out != "" {
+			lines := strings.Split(out, "\n")
+			count := 0
+			for _, l := range lines {
+				if strings.TrimSpace(l) != "" {
+					count++
+				}
+			}
+			info.IsDirty = true
+			info.UncommittedCount = int32(count)
+		}
+	}
+
+	// Ahead/behind
+	if out, err := runGit(entry.Path, "rev-list", "--left-right", "--count", "@{u}...HEAD"); err == nil {
+		parts := strings.Fields(out)
+		if len(parts) == 2 {
+			fmt.Sscanf(parts[0], "%d", &info.Behind)
+			fmt.Sscanf(parts[1], "%d", &info.Ahead)
+		}
+	}
+
+	return info, nil
+}
+
+// runGit runs a git command in the given directory and returns trimmed stdout.
+func runGit(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // --- TaskService ---
@@ -361,6 +431,11 @@ func (s *agentService) StartAgent(_ context.Context, req *pb.StartAgentRequest) 
 		mode = agent.ModeChat
 	}
 
+	// Track agent start (deferred until we confirm no error, but fire-and-forget is fine)
+	analytics.Track("agent_started", posthog.NewProperties().
+		Set("origin", req.GetMeta().GetOrigin()).
+		Set("mode", string(mode)))
+
 	// Task/Wildfire mode: look up task details and compose prompts
 	var taskTitle, taskPrompt, taskSystemPrompt string
 	var taskNumber int32
@@ -575,6 +650,7 @@ func (s *agentService) StopAgent(_ context.Context, req *pb.ProjectId) (*emptypb
 	if err := s.manager.StopAgentByUser(req.ProjectId); err != nil {
 		return nil, err
 	}
+	analytics.Track("agent_stopped", posthog.NewProperties().Set("origin", req.GetMeta().GetOrigin()))
 	return &emptypb.Empty{}, nil
 }
 
@@ -865,7 +941,11 @@ func (s *settingsService) GetSettings(_ context.Context, _ *emptypb.Empty) (*pb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to load settings: %w", err)
 	}
-	return modelToProtoSettings(settings), nil
+	pbSettings := modelToProtoSettings(settings)
+	if installID, err := config.LoadInstallationID(); err == nil {
+		pbSettings.InstallationId = installID
+	}
+	return pbSettings, nil
 }
 
 func (s *settingsService) UpdateSettings(_ context.Context, req *pb.UpdateSettingsRequest) (*pb.Settings, error) {
@@ -914,6 +994,7 @@ func (s *settingsService) UpdateSettings(_ context.Context, req *pb.UpdateSettin
 	if err := config.SaveSettings(settings); err != nil {
 		return nil, fmt.Errorf("failed to save settings: %w", err)
 	}
+	analytics.Track("settings_updated", posthog.NewProperties().Set("origin", req.GetMeta().GetOrigin()))
 	return modelToProtoSettings(settings), nil
 }
 

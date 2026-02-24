@@ -74,6 +74,15 @@ message UpdateProjectRequest {
   optional string definition = 10;
 }
 
+message GitInfo {
+  string current_branch = 1;
+  string remote_url = 2;
+  bool is_dirty = 3;
+  int32 uncommitted_count = 4;
+  int32 ahead = 5;
+  int32 behind = 6;
+}
+
 // ============================================================================
 // Task Messages
 // ============================================================================
@@ -333,6 +342,7 @@ message Settings {
   DefaultsConfig defaults = 3;
   UpdatesConfig updates = 4;
   AppearanceConfig appearance = 5;
+  string installation_id = 6;
 }
 
 message UpdateSettingsRequest {
@@ -354,6 +364,7 @@ service ProjectService {
   rpc CreateProject(CreateProjectRequest) returns (Project);
   rpc UpdateProject(UpdateProjectRequest) returns (Project);
   rpc DeleteProject(ProjectId) returns (google.protobuf.Empty);
+  rpc GetGitInfo(ProjectId) returns (GitInfo);
 }
 
 // TaskService handles task CRUD and bulk operations

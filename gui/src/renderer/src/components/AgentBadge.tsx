@@ -13,7 +13,13 @@ export function AgentBadge({ status, className }: AgentBadgeProps) {
     ? 'Chat'
     : status.mode === 'wildfire'
       ? `Wildfire${status.wildfirePhase ? ` (${status.wildfirePhase})` : ''}`
-      : `Task ${formatTaskNumber(status.taskNumber)}`
+      : status.mode === 'generate-definition'
+        ? 'Generating Definition'
+        : status.mode === 'generate-tasks'
+          ? 'Planning Tasks'
+          : status.mode === 'start-all'
+            ? `Start All (T${formatTaskNumber(status.taskNumber)})`
+            : `Task ${formatTaskNumber(status.taskNumber)}`
 
   return (
     <span

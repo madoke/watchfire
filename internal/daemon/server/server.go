@@ -12,10 +12,13 @@ import (
 	"syscall"
 
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/posthog/posthog-go"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
+	"github.com/watchfire-io/watchfire/internal/analytics"
+	"github.com/watchfire-io/watchfire/internal/buildinfo"
 	"github.com/watchfire-io/watchfire/internal/config"
 	"github.com/watchfire-io/watchfire/internal/daemon/agent"
 	"github.com/watchfire-io/watchfire/internal/daemon/agent/prompts"
@@ -53,6 +56,12 @@ func New(port int) (*Server, error) {
 	actualPort := listener.Addr().(*net.TCPAddr).Port
 
 	grpcServer := grpc.NewServer()
+
+	// Initialize analytics
+	if installID, err := config.LoadInstallationID(); err == nil {
+		analytics.Init(buildinfo.PostHogKey, installID, buildinfo.Version)
+	}
+	analytics.Track("daemon_started", posthog.NewProperties().Set("origin", "daemon"))
 
 	// Create managers
 	projectMgr := project.NewManager()
@@ -323,6 +332,8 @@ func (s *Server) Serve() error {
 
 // Stop gracefully stops the server.
 func (s *Server) Stop() {
+	// Flush analytics
+	analytics.Close()
 	// Stop watcher before agents (prevents new task-done events during shutdown)
 	if s.watcher != nil {
 		s.watcher.Stop()

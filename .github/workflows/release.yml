@@ -90,9 +90,13 @@ jobs:
           rm $RUNNER_TEMP/certificate.p12
 
       - name: Build daemon
+        env:
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
         run: make build-daemon-${{ matrix.arch }}
 
       - name: Build CLI
+        env:
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
         run: make build-cli-${{ matrix.arch }}
 
       - name: Code sign binaries

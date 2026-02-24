@@ -1,176 +1,92 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [0.1.0] Ember — Initial Release
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Watchfire orchestrates coding agent sessions (starting with Claude Code) based on project specs and tasks. Define what you want built, break it into tasks, and let agents work through them autonomously — with full visibility into what's happening.
 
-## [Unreleased]
+### Daemon (`watchfired`)
 
-### Fixed
-- GUI terminal: switched from vt10x ANSI snapshots to raw PTY streaming via `SubscribeRawOutput`, eliminating scrollback accumulation caused by double terminal emulation
-- GUI terminal: removed alternate screen buffer hacks and dimension-matching guards that caused rendering issues
-- `SubscribeRawOutput` now sends buffered raw output on connect for late-join catch-up (up to 1MB)
+The always-on backend that manages everything:
 
-## [0.1.0] Ember
+- **Agent orchestration** — Spawns coding agents in sandboxed PTYs with terminal emulation, one task per project, multiple projects in parallel
+- **Git worktree isolation** — Each task runs in its own worktree (`watchfire/<task_number>`), auto-merged back on completion with conflict detection
+- **macOS sandbox** — Agents run inside `sandbox-exec` with restricted filesystem/network access
+- **File watching** — Real-time detection of task completion and phase signals via fsnotify, with polling fallback for reliability
+- **Session logs** — Every agent session recorded to `~/.watchfire/logs/` with YAML metadata
+- **System tray** — Menu bar icon showing daemon status, active agents with colored project dots, and quick stop/quit actions
+- **Issue detection** — Monitors agent output for auth errors (401, expired tokens) and rate limits (429), with real-time notifications to clients
+- **gRPC + gRPC-Web** — Single port serves both native gRPC (CLI/TUI) and gRPC-Web (Electron GUI)
+- **Auto-discovery** — Writes connection info to `~/.watchfire/daemon.yaml` so clients find it automatically
 
-### Added
+### CLI (`watchfire`)
 
-#### Development Environment
-- Go module initialization (`github.com/watchfire-io/watchfire`)
-- Makefile with commands: `dev-daemon`, `dev-tui`, `build`, `test`, `lint`, `proto`, `clean`
-- golangci-lint configuration (`.golangci.yml`)
-- Air hot reload configuration for daemon (`.air.toml`)
-- EditorConfig for consistent formatting (`.editorconfig`)
-- Version tracking (`version.json`) with version 0.1.0 codename "Ember"
+Project-scoped command-line interface:
 
-#### Daemon (`watchfired`)
-- gRPC server with dynamic port allocation
-- Daemon discovery via `~/.watchfire/daemon.yaml`
-- Project manager with CRUD operations
-- Task manager with CRUD and soft delete/restore
-- File watcher with debouncing for real-time updates
-- Graceful shutdown on SIGINT/SIGTERM
-- System tray icon and menu via `github.com/getlantern/systray`
-  - Shows daemon status header and listening port
-  - Pre-allocated agent slots (hidden until agents active)
-  - "No active agents" placeholder
-  - "Open GUI" stub action
-  - "Quit" to shut down daemon
-  - Tooltip: "Watchfire — {n} projects, {m} active"
-  - `-foreground` flag bypasses tray (for hot reload / dev)
+- `watchfire init` — Initialize a project (git setup, `.watchfire/` structure, `.gitignore`, interactive config)
+- `watchfire task add|list|edit|delete|restore` — Full task CRUD with soft delete/restore
+- `watchfire definition` — Edit project definition in `$EDITOR`
+- `watchfire settings` — Configure project settings interactively
+- `watchfire agent start [task|all]` — Start agent in chat, single-task, or run-all-ready mode
+- `watchfire agent wildfire` — Autonomous three-phase loop: execute ready tasks → refine drafts → generate new tasks → repeat
+- `watchfire agent generate definition|tasks` — One-shot generation commands
+- `watchfire daemon start|status|stop` — Daemon lifecycle management
+- `watchfire update` — Self-update from GitHub Releases
+- **Terminal attach** — Raw PTY streaming with resize handling and Ctrl+C forwarding
+- **Self-healing project index** — Auto-registers projects, updates moved paths, reactivates archived projects
 
-#### CLI (`watchfire`)
-- `watchfire version` - Display version information
-- `watchfire init` - Initialize new project (git init, .watchfire/ structure, .gitignore)
-- `watchfire task list` - List tasks grouped by status (Draft, Ready, Done)
-- `watchfire task list-deleted` - List soft-deleted tasks
-- `watchfire task add` - Create new task (interactive prompts)
-- `watchfire task <number>` - Edit existing task
-- `watchfire task delete <number>` - Soft delete task
-- `watchfire task restore <number>` - Restore soft-deleted task
+### TUI (`watchfire` with no args)
 
-#### Data Models
-- Project configuration (`project.yaml`) with settings for auto-merge, auto-delete, auto-start
-- Task files with status workflow (draft → ready → done)
-- Global projects index (`~/.watchfire/projects.yaml`)
-- Global settings (`~/.watchfire/settings.yaml`)
+Interactive split-view terminal interface:
 
-#### Proto Definitions
-- `ProjectService` - Project CRUD operations
-- `TaskService` - Task CRUD and bulk operations
-- `DaemonService` - Daemon status and shutdown
+- **Split layout** — Task list (left) + agent terminal (right) with draggable divider
+- **Left panel tabs** — Tasks (grouped by status), Definition (read-only + `$EDITOR`), Settings (inline form)
+- **Right panel tabs** — Chat (live agent terminal), Logs (session history viewer)
+- **Agent modes** — Chat, task, start-all, and wildfire with phase display (Execute/Refine/Generate)
+- **Issue banners** — Auth required and rate limit detection with recovery guidance
+- **Keyboard navigation** — Vim-style (`j/k`), arrows, tab switching (`1/2/3`), panel focus (`Tab`)
+- **Mouse support** — Click to focus/select, scroll, drag divider to resize
+- **Task management** — Add, edit, status transitions (draft/ready/done), soft delete — all from the keyboard
+- **Auto-reconnect** — Reconnects to daemon on disconnect with status indicator
+- **Help overlay** — `Ctrl+h` for full keybinding reference
 
-#### TUI — Interactive Split-View Interface
-- `watchfire` (no args) — Launch interactive TUI with split-view layout
-- Split-panel layout: task list (left) + agent terminal (right), draggable divider
-- Left panel tabs: Tasks (grouped by status), Definition (read-only + $EDITOR), Settings (inline form)
-- Right panel tabs: Chat (live agent terminal), Logs (session history viewer)
-- Full task management: add, edit, status transitions (draft/ready/done), soft delete
-- Agent terminal with raw PTY streaming, keyboard input forwarding, and scrollback
-- Agent control: start/stop, chat/task/start-all/wildfire modes with auto-start chat
-- Wildfire phase display (Execute/Refine/Generate) in terminal panel
-- Agent issue banners: auth required and rate limit detection with recovery actions
-- Help overlay (Ctrl+h) with full keybinding reference
-- Task add/edit overlays with multiline textarea fields
-- Context-sensitive status bar with key hints and connection indicator
-- Keyboard navigation: vim-style (j/k), arrows, tab switching (1/2/3), panel focus (Tab)
-- Mouse support: click to focus/select, scroll, drag divider to resize panels
-- Auto-reconnect to daemon with "Disconnected" indicator and 3-second retry
-- Minimum terminal size detection (80x24)
-- ANSI 256 color styling with light/dark terminal adaptation (lipgloss.AdaptiveColor)
+### GUI (Electron)
 
-#### CLI — Project Configuration Commands
-- `watchfire definition` (alias: `def`) — Edit project definition in external editor ($EDITOR, $VISUAL, vim, vi, nano)
-- `watchfire settings` — Configure project settings interactively (name, color, branch, automation toggles)
+Multi-project desktop application:
 
-#### System Tray — Colored Project Icons
-- Agent menu items now display a dynamically generated colored circle icon based on the project's hex color setting
-- Icons are cached to avoid regeneration for the same color
+- **Dashboard** — Project cards with task counts, status dots, active task display
+- **Project view** — Tasks, Definition, Trash, Settings tabs with collapsible right panel (Chat, Branches, Logs)
+- **Add Project wizard** — Three-step flow: project info → git config → definition
+- **Branch management** — View, merge, delete, and bulk-manage worktree branches
+- **Agent terminal** — Live streaming via gRPC-Web with input support
+- **Global settings** — Defaults, appearance (system/light/dark theme), agent path config, update preferences
+- **Daemon lifecycle** — Auto-restarts daemon if it dies, handles binary updates gracefully
 
-#### CLI — Self-Healing Project Index
-- Project-scoped CLI commands now auto-register the project in `~/.watchfire/projects.yaml` if missing
-- Automatically updates the project path in the global index if the project directory was moved
-- Reactivates archived projects when a CLI command is run from the project directory
+### Agent Modes
 
-#### CLI — Daemon Commands
-- `watchfire daemon start` — Start the daemon (detects if already running)
-- `watchfire daemon status` — Show daemon host, port, PID, uptime, and active agents (project, mode, task)
-- `watchfire daemon stop` — Stop the daemon via SIGTERM with shutdown polling
+| Mode | Description |
+|------|-------------|
+| **Chat** | Free-form conversation with the agent at project root |
+| **Task** | Work on a specific task in an isolated worktree |
+| **Start All** | Run all ready tasks in sequence, one at a time |
+| **Wildfire** | Fully autonomous loop: execute → refine → generate → repeat until done |
+| **Generate Definition** | One-shot: agent analyzes codebase and writes project definition |
+| **Generate Tasks** | One-shot: agent reads definition and creates task files |
 
-#### CLI — Agent Commands
-- `watchfire agent start [task-number|all]` — Start agent session in chat, task, or start-all mode
-- `watchfire agent generate definition` (alias: `gen def`) — Generate/update project definition
-- `watchfire agent generate tasks` (alias: `gen tasks`) — Generate tasks from project definition
-- `watchfire agent wildfire` — Autonomous three-phase loop (execute → refine → generate)
-- Terminal attach mode with raw PTY streaming, resize handling (SIGWINCH), and Ctrl+C forwarding
-- Automatic re-subscription for chaining modes (start-all, wildfire) when tasks complete
+### Task Lifecycle
 
-#### CLI — gRPC Client
-- Daemon connection helper (`internal/cli/grpc.go`) with auto-discovery via `~/.watchfire/daemon.yaml`
+```
+draft → ready → done (success ✓ or failure ✗)
+```
 
-#### Daemon — Agent Infrastructure
-- Agent manager (`internal/daemon/agent/manager.go`) with lifecycle tracking and mode support (chat, task, start-all, wildfire, generate-definition, generate-tasks)
-- Agent process management (`internal/daemon/agent/process.go`) with PTY spawning via `github.com/creack/pty`
-- Terminal emulation via `github.com/hinshun/vt10x` with screen buffer and scrollback
-- Git worktree management (`internal/daemon/agent/worktree.go`) — create, merge, and remove worktrees per task
-- macOS sandbox integration (`internal/daemon/agent/sandbox.go`) via `sandbox-exec`
-- Agent prompts system (`internal/daemon/agent/prompts/`) with embedded templates:
-  - Base Watchfire context prompt
-  - Task mode prompts (system + user)
-  - Wildfire refine/generate phase prompts
-  - Generate definition/tasks mode prompts
-- Agent state persistence (`~/.watchfire/agents.yaml`) — tracks running agents across CLI/daemon boundary
-- Signal file detection for phase completion (refine_done.yaml, generate_done.yaml, definition_done.yaml, tasks_done.yaml)
-- `AgentService` gRPC implementation with 10 RPCs (StartAgent, StopAgent, GetAgentStatus, SubscribeScreen, SubscribeRawOutput, GetScrollback, SendInput, Resize, SubscribeAgentIssues, ResumeAgent)
-- Agent message types in proto (AgentStatus, ScreenBuffer, RawOutputChunk, ScrollbackLines, etc.)
-- Task completion flow: agent writes `status: done` → watcher detects → daemon stops agent → auto-merge/cleanup
-- Wired agent manager into daemon server and system tray
+- Tasks are YAML files in `.watchfire/tasks/`
+- Agents detect completion by writing `status: done` to the task file
+- Daemon auto-merges the worktree branch, cleans up, and chains to the next task
+- Merge conflicts abort the chain to prevent cascading failures
 
-#### Daemon — Agent Issue Detection
-- Real-time detection of auth errors and rate limits in PTY output (`internal/daemon/agent/issue.go`)
-- Auth error detection: API 401 errors, OAuth token expiration, `/login` prompts
-- Rate limit detection: 429 errors, "hit your limit" messages, with reset time parsing
-- Issue subscriptions via `SubscribeAgentIssues` streaming RPC
-- `ResumeAgent` RPC to clear rate limit cooldown
-- `GetAgentStatus` now includes current blocking issue if any
-- Agent continues running during issues (user can run `/login` or wait for rate limit reset)
-- Pattern matching with ANSI escape code stripping for reliable detection
+### Build & Distribution
 
-#### Daemon — Session Logs
-- Session log system (`internal/config/log.go`, `internal/models/log.go`) — writes YAML-header log files per agent session
-- Log storage at `~/.watchfire/logs/<project_id>/<logID>.log`
-- `LogService` gRPC service with `ListLogs` and `GetLog` RPCs
-- Proto messages: `LogEntry`, `LogList`, `LogContent`, `ListLogsRequest`, `GetLogRequest`
-
-#### GUI — Daemon Lifecycle
-- GUI automatically restarts the daemon if it dies (instead of quitting the app)
-- `stopDaemon()` sends SIGTERM and polls for exit before binary updates
-- CLI binary update stops the old daemon so `ensureDaemon()` starts the new version
-- Renderer reconnect triggers `ensureDaemon()` via IPC to start the daemon if not running
-
-#### Daemon — Resilience Improvements
-- Watcher re-watch on chain: chained agents (wildfire/start-all) re-watch the project to pick up directories created during earlier phases
-- Polling fallback: task-mode agents poll task YAML every 5s as safety net for missed watcher events (kqueue overflow, late directory creation)
-- Task number sync (`SyncNextTaskNumber`): scans task files and updates `next_task_number` when agents create task files directly
-- ANSI screen content: `ScreenBuffer` now includes full ANSI SGR rendering for richer terminal display
-- Initial screen snapshot sent on `SubscribeScreen` connect so TUI sees current state immediately
-- PTY size passthrough: `StartAgent` accepts rows/cols from client, forwarded to agent PTY
-- Stale project index cleanup: removes duplicate entries for the same path in `projects.yaml`
-
-### Changed
-- CLI help commands reordered alphabetically
-- Migrated golangci-lint configuration to v2 format
-- `StartAgent` now stops any existing agent before starting a new one (instead of returning existing)
-- `StopAgent` from user (CLI/TUI) explicitly prevents wildfire/start-all chaining via `StopAgentByUser`
-- CLI Ctrl+C in wildfire/start-all modes now stops the agent and breaks the re-subscribe loop (instead of forwarding Ctrl+C to agent)
-- `MergeWorktree` returns `(bool, error)` — skips merge when no file differences exist (detects via `git diff --stat`)
-- `onTaskDoneFn` returns bool to control whether chaining continues after task completion
-- Architecture doc updated with worktree resilience, task lifecycle, TUI layout, and watcher improvements
-
-### Fixed
-- `formatTaskNumber` in `config/paths.go` — int-to-string conversion produced wrong results
-- Resolved all 74 golangci-lint issues across the codebase (var-naming, noctx, errcheck, gofmt, doc comments, octal literals, etc.)
-- Stale branch handling: worktree creation now deletes existing branch and recreates from current HEAD (instead of reusing old commit)
-- Merge conflict recovery: `git merge --abort` on failure restores clean working directory
-- Chain stop on merge failure: prevents cascading failures in wildfire/start-all modes
+- **macOS DMG** — Universal binary (arm64 + amd64) with GUI, CLI, and daemon bundled
+- **Code signing & notarization** — Developer ID certificate with hardened runtime
+- **Homebrew** — `brew tap watchfire/tap && brew install watchfire`
+- **Auto-update** — GUI via `electron-updater`, CLI via `watchfire update`, daemon checks on startup
+- **CI/CD** — GitHub Actions: lint, test, build matrix (arm64/amd64), sign, notarize, draft release

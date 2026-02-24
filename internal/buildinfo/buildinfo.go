@@ -6,4 +6,5 @@ var (
 	Codename   = "unknown"
 	CommitHash = "unknown"
 	BuildDate  = "unknown"
+	PostHogKey = ""
 )

@@ -6,11 +6,11 @@ tmp_dir = "tmp"
 
 [build]
 # Build command
-cmd = "go build -o ./tmp/watchfired ./cmd/watchfired"
+cmd = "make build-daemon-dev"
 # Binary file to run
-bin = "./tmp/watchfired"
+bin = "./build/watchfired"
 # Arguments to pass to the binary
-args_bin = ["-foreground"]
+args_bin = ["--foreground"]
 # Watch these file extensions
 include_ext = ["go", "proto", "yaml"]
 # Exclude these directories

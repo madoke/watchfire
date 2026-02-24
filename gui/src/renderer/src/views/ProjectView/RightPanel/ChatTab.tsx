@@ -33,19 +33,6 @@ export function ChatTab({ projectId }: Props) {
     fetchStatus(projectId)
   }, [projectId])
 
-  // Auto-start chat agent when tab mounts and no agent is running
-  const autoStarted = useRef(false)
-  useEffect(() => {
-    if (!autoStarted.current && agentStatus !== undefined && !agentStatus?.isRunning) {
-      autoStarted.current = true
-      // Small delay to ensure terminal is mounted and fitted before getting dimensions
-      setTimeout(() => {
-        const dims = getDimensions()
-        startAgent(projectId, 'chat', { rows: dims.rows, cols: dims.cols }).catch(() => {})
-      }, 150)
-    }
-  }, [projectId, agentStatus])
-
   const handleStart = async () => {
     try {
       const dims = getDimensions()

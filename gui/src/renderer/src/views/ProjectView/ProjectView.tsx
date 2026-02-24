@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ListTodo, FileText, Trash2, Settings, MessageSquare, GitBranch, ScrollText, PanelRightClose, PanelRight } from 'lucide-react'
+import { ListTodo, FileText, Trash2, Settings, GitBranch, Globe, Circle, PanelRightClose, PanelRight, Square, Flame, Play, Sparkles } from 'lucide-react'
 import { useAppStore } from '../../stores/app-store'
 import { useProjectsStore } from '../../stores/projects-store'
 import { useTasksStore } from '../../stores/tasks-store'
+import { useAgentStore } from '../../stores/agent-store'
+import { useGitStore } from '../../stores/git-store'
 import { StatusDot } from '../../components/StatusDot'
 import { AgentBadge } from '../../components/AgentBadge'
+import { Button } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
 import { cn } from '../../lib/utils'
 import { TasksTab } from './TasksTab/TasksTab'
 import { DefinitionTab } from './DefinitionTab'
@@ -26,6 +30,11 @@ export function ProjectView() {
   const projects = useProjectsStore((s) => s.projects)
   const agentStatus = useProjectsStore((s) => s.agentStatuses[projectId || ''])
   const fetchTasks = useTasksStore((s) => s.fetchTasks)
+  const startAgent = useAgentStore((s) => s.startAgent)
+  const stopAgent = useAgentStore((s) => s.stopAgent)
+  const gitInfo = useGitStore((s) => s.gitInfo[projectId || ''])
+  const fetchGitInfo = useGitStore((s) => s.fetchGitInfo)
+  const { toast } = useToast()
 
   const [centerTab, setCenterTab] = useState<CenterTab>('tasks')
   const [rightPanelOpen, setRightPanelOpen] = useState(true)
@@ -71,6 +80,38 @@ export function ProjectView() {
     if (projectId) fetchTasks(projectId, true)
   }, [projectId])
 
+  // Fetch git info on mount and poll every 10s
+  useEffect(() => {
+    if (!projectId) return
+    fetchGitInfo(projectId)
+    const interval = setInterval(() => fetchGitInfo(projectId), 10000)
+    return () => clearInterval(interval)
+  }, [projectId])
+
+  const isAgentRunning = agentStatus?.isRunning
+
+  const handleStartAgent = async (mode: string) => {
+    if (!projectId) return
+    try {
+      // If an agent is running (e.g. chat mode), stop it first
+      if (isAgentRunning) {
+        await stopAgent(projectId)
+      }
+      await startAgent(projectId, mode)
+    } catch (err) {
+      toast(String(err), 'error')
+    }
+  }
+
+  const handleStopAgent = async () => {
+    if (!projectId) return
+    try {
+      await stopAgent(projectId)
+    } catch (err) {
+      toast(String(err), 'error')
+    }
+  }
+
   if (!project || !projectId) {
     return (
       <div className="flex-1 flex items-center justify-center text-[var(--wf-text-muted)]">
@@ -82,18 +123,87 @@ export function ProjectView() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Project header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--wf-border)]">
-        <div className="flex items-center gap-3">
-          <StatusDot color={project.color || '#e07040'} pulsing={agentStatus?.isRunning} />
-          <h2 className="font-heading text-base font-semibold">{project.name}</h2>
-          {agentStatus?.isRunning && <AgentBadge status={agentStatus} />}
+      <div className="px-6 py-3 border-b border-[var(--wf-border)] flex flex-col gap-2">
+        {/* Row 1: Project name + status + panel toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <StatusDot color={project.color || '#e07040'} pulsing={isAgentRunning} />
+            <h2 className="font-heading text-base font-semibold">{project.name}</h2>
+            {isAgentRunning && <AgentBadge status={agentStatus} />}
+          </div>
+          <button
+            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            className="p-1.5 text-[var(--wf-text-muted)] hover:text-[var(--wf-text-primary)] transition-colors"
+          >
+            {rightPanelOpen ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
+          </button>
         </div>
-        <button
-          onClick={() => setRightPanelOpen(!rightPanelOpen)}
-          className="p-1.5 text-[var(--wf-text-muted)] hover:text-[var(--wf-text-primary)] transition-colors"
-        >
-          {rightPanelOpen ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
-        </button>
+
+        {/* Row 2: Action buttons (left) + Git info (right) */}
+        <div className="flex items-center justify-between">
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5">
+            {/* Show action buttons when idle or in chat mode */}
+            {(!isAgentRunning || agentStatus?.mode === 'chat') && (
+              <>
+                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-definition')} title="Generate project definition from codebase">
+                  <Sparkles size={12} />
+                  Generate
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-tasks')} title="Generate tasks from project definition">
+                  <ListTodo size={12} />
+                  Plan
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('start-all')} title="Run all ready tasks sequentially">
+                  <Play size={12} />
+                  Run All
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('wildfire')} title="Autonomous loop: generate, plan, and execute">
+                  <Flame size={12} />
+                  Wildfire
+                </Button>
+              </>
+            )}
+            {/* Show stop button when any agent is running */}
+            {isAgentRunning && (
+              <Button size="sm" variant="danger" onClick={handleStopAgent} title="Stop the running agent">
+                <Square size={12} />
+                Stop
+              </Button>
+            )}
+          </div>
+
+          {/* Git info */}
+          <div className="flex items-center gap-2 text-xs text-[var(--wf-text-muted)]">
+            {gitInfo?.currentBranch && (
+              <>
+                <GitBranch size={12} />
+                <span>{gitInfo.currentBranch}</span>
+              </>
+            )}
+            {gitInfo?.remoteUrl && (
+              <>
+                <span className="opacity-40">·</span>
+                <Globe size={12} />
+                <span>{gitInfo.remoteUrl}</span>
+              </>
+            )}
+            {gitInfo?.isDirty && (
+              <>
+                <span className="opacity-40">·</span>
+                <Circle size={10} className="text-yellow-500 fill-yellow-500" />
+                <span>{gitInfo.uncommittedCount} {gitInfo.uncommittedCount === 1 ? 'change' : 'changes'}</span>
+              </>
+            )}
+            {(gitInfo?.ahead > 0 || gitInfo?.behind > 0) && (
+              <>
+                <span className="opacity-40">·</span>
+                {gitInfo.ahead > 0 && <span>{gitInfo.ahead}↑</span>}
+                {gitInfo.behind > 0 && <span>{gitInfo.behind}↓</span>}
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Content area */}

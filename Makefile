@@ -1,3 +1,6 @@
+-include .env
+export POSTHOG_KEY
+
 .PHONY: dev-daemon dev-tui dev-gui build build-daemon build-cli test lint proto clean install-tools \
        build-daemon-arm64 build-daemon-amd64 build-cli-arm64 build-cli-amd64 build-universal sync-version package-gui \
        install install-all uninstall
@@ -27,7 +30,8 @@ BUILD_DATE := $(shell date -u +%Y-%m-%d)
 LDFLAGS := -X github.com/watchfire-io/watchfire/internal/buildinfo.Version=$(VERSION) \
            -X github.com/watchfire-io/watchfire/internal/buildinfo.Codename=$(CODENAME) \
            -X github.com/watchfire-io/watchfire/internal/buildinfo.CommitHash=$(COMMIT) \
-           -X github.com/watchfire-io/watchfire/internal/buildinfo.BuildDate=$(BUILD_DATE)
+           -X github.com/watchfire-io/watchfire/internal/buildinfo.BuildDate=$(BUILD_DATE) \
+           -X github.com/watchfire-io/watchfire/internal/buildinfo.PostHogKey=$(POSTHOG_KEY)
 
 # Development with hot reload
 dev-daemon:
@@ -45,7 +49,7 @@ dev-gui:
 # Build all Go binaries (native arch)
 build: build-daemon build-cli
 
-build-daemon:
+build-daemon build-daemon-dev:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=1 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(DAEMON_BINARY) ./$(CMD_DIR)/watchfired
 

@@ -12,7 +12,10 @@ require (
 	github.com/getlantern/systray v1.2.2
 	github.com/google/uuid v1.6.0
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
+	github.com/improbable-eng/grpc-web v0.15.0
+	github.com/posthog/posthog-go v1.10.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/net v0.47.0
 	golang.org/x/term v0.37.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
@@ -38,7 +41,8 @@ require (
 	github.com/getlantern/hidden v0.0.0-20190325191715-f02dbb02be55 // indirect
 	github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/improbable-eng/grpc-web v0.15.0 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
@@ -53,7 +57,6 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect

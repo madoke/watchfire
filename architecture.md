@@ -36,7 +36,7 @@ The daemon is the backend brain of Watchfire. It manages multiple projects simul
 
 | Aspect | Behavior |
 |--------|----------|
-| **Development** | Run `watchfired` in foreground to see logs |
+| **Development** | Run `watchfired --foreground` for hot reload (tray still active) |
 | **Production** | Runs in background, started automatically by CLI/TUI/GUI if not running |
 | **Persistence** | Stays running when thin clients close |
 | **Shutdown** | Ctrl+C (foreground), CLI command, or system tray quit. All thin clients close when daemon quits |
@@ -883,6 +883,7 @@ Split layout with tabs:
 ├── agents.yaml         # Running agents state (project, mode, task info)
 ├── projects.yaml       # Projects index (id, path, name, position)
 ├── settings.yaml       # Global settings (agent paths, defaults)
+├── installation_id     # Stable UUID for analytics (decoupled from settings)
 └── logs/               # Session logs
     └── <project_id>/
         └── <task_number>-<session>-<timestamp>.log
@@ -1013,7 +1014,9 @@ next_task_number: 6
 
 ### Global Settings File Format
 
-Global configuration in `~/.watchfire/settings.yaml`:
+Global configuration in `~/.watchfire/settings.yaml`.
+
+> **Note:** The `installation_id` (analytics UUID) is stored separately in `~/.watchfire/installation_id` to prevent accidental loss during settings save/load cycles.
 
 ```yaml
 version: 1

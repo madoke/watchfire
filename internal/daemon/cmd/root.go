@@ -60,55 +60,13 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	}
 
 	if foreground {
-		log.Println("Running in foreground mode (no system tray)")
-		runForeground(port)
+		log.Println("Running in foreground mode (with system tray)")
 	} else {
 		log.Println("Running in background mode (with system tray)")
-		runWithTray(port)
 	}
+	runWithTray(port)
 
 	return nil
-}
-
-// runForeground runs the daemon without a system tray, blocking on signals.
-func runForeground(port int) {
-	srv, err := server.New(port)
-	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
-	}
-
-	daemonInfo := models.NewDaemonInfo("localhost", srv.Port(), os.Getpid())
-	if err := config.SaveDaemonInfo(daemonInfo); err != nil {
-		log.Fatalf("Failed to write daemon info: %v", err)
-	}
-
-	log.Printf("Daemon started on port %d (PID %d)", srv.Port(), os.Getpid())
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- srv.Serve()
-	}()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case sig := <-sigCh:
-		log.Printf("Received signal %v, shutting down...", sig)
-	case err := <-errCh:
-		log.Printf("Server error: %v", err)
-	}
-
-	srv.Stop()
-
-	if err := config.RemoveAgentState(); err != nil {
-		log.Printf("Failed to remove agent state: %v", err)
-	}
-	if err := config.RemoveDaemonInfo(); err != nil {
-		log.Printf("Failed to remove daemon info: %v", err)
-	}
-
-	fmt.Println("Daemon stopped")
 }
 
 // runWithTray runs the daemon with a system tray icon on the main goroutine.
