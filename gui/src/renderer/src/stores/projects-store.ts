@@ -36,6 +36,15 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     try {
       const client = getAgentClient()
       const status = await client.getAgentStatus({ projectId })
+      const existing = get().agentStatuses[projectId]
+      if (
+        existing &&
+        existing.isRunning === status.isRunning &&
+        existing.mode === status.mode &&
+        existing.taskNumber === status.taskNumber &&
+        existing.taskTitle === status.taskTitle &&
+        existing.wildfirePhase === status.wildfirePhase
+      ) return
       set((s) => ({
         agentStatuses: { ...s.agentStatuses, [projectId]: status }
       }))

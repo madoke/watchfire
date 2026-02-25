@@ -33,6 +33,12 @@ export function ChatTab({ projectId }: Props) {
     fetchStatus(projectId)
   }, [projectId])
 
+  // Poll agent status so ChatTab reacts to agents started externally (e.g. header buttons)
+  useEffect(() => {
+    const interval = setInterval(() => fetchStatus(projectId), 2000)
+    return () => clearInterval(interval)
+  }, [projectId])
+
   const handleStart = async () => {
     try {
       const dims = getDimensions()

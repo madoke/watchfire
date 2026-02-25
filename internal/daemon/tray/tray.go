@@ -5,15 +5,22 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"log"
+	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/getlantern/systray"
 )
 
-const maxAgentSlots = 10
+const (
+	maxAgentSlots   = 10
+	maxProjectSlots = 10
+	numStartModes   = 5 // generate-definition, generate-tasks, start-all, wildfire, open-gui
+)
 
 var (
 	state    DaemonState
@@ -21,18 +28,33 @@ var (
 	onExit   func()
 	portItem *systray.MenuItem
 
+	// Dynamic tray icons
+	iconIdle   []byte
+	iconActive []byte
+
 	// Pre-allocated agent menu slots
 	agentSlots   [maxAgentSlots]*systray.MenuItem
 	agentOpenGUI [maxAgentSlots]*systray.MenuItem
 	agentStop    [maxAgentSlots]*systray.MenuItem
 	noAgentsItem *systray.MenuItem
-	updateItem   *systray.MenuItem
-	openGUIItem  *systray.MenuItem
-	quitItem     *systray.MenuItem
 
-	// Maps slot index → project ID for stop actions
-	slotMu       sync.RWMutex
-	slotProjects [maxAgentSlots]string
+	// Pre-allocated project menu slots (for idle projects)
+	projectSlots       [maxProjectSlots]*systray.MenuItem
+	projectGenDef      [maxProjectSlots]*systray.MenuItem
+	projectGenTasks    [maxProjectSlots]*systray.MenuItem
+	projectStartAll    [maxProjectSlots]*systray.MenuItem
+	projectWildfire    [maxProjectSlots]*systray.MenuItem
+	projectOpenGUIItem [maxProjectSlots]*systray.MenuItem
+
+	updateItem  *systray.MenuItem
+	openGUIItem *systray.MenuItem
+	quitItem    *systray.MenuItem
+
+	// Maps slot index → project ID for actions
+	slotMu          sync.RWMutex
+	slotProjects    [maxAgentSlots]string
+	projSlotIDs     [maxProjectSlots]string
+	previousAgents  map[string]AgentInfo // keyed by projectID, for notification transitions
 
 	// Cache generated icons by hex color
 	iconCache   = make(map[string][]byte)
@@ -55,7 +77,10 @@ func Quit() {
 }
 
 func onReady() {
-	systray.SetTemplateIcon(iconData, iconData)
+	// Generate tray icons
+	iconIdle = iconData
+	iconActive = generateActiveIcon(iconData)
+	systray.SetTemplateIcon(iconIdle, iconIdle)
 	systray.SetTooltip(formatTooltip(0, 0))
 
 	// Header
@@ -82,6 +107,19 @@ func onReady() {
 
 	systray.AddSeparator()
 
+	// Pre-allocate project slots (for idle projects with start actions)
+	for i := 0; i < maxProjectSlots; i++ {
+		projectSlots[i] = systray.AddMenuItem("", "")
+		projectGenDef[i] = projectSlots[i].AddSubMenuItem("Generate Definition", "")
+		projectGenTasks[i] = projectSlots[i].AddSubMenuItem("Plan Tasks", "")
+		projectStartAll[i] = projectSlots[i].AddSubMenuItem("Run All", "")
+		projectWildfire[i] = projectSlots[i].AddSubMenuItem("Wildfire", "")
+		projectOpenGUIItem[i] = projectSlots[i].AddSubMenuItem("Open in GUI", "")
+		projectSlots[i].Hide()
+	}
+
+	systray.AddSeparator()
+
 	// Update notice (hidden until update is detected)
 	updateItem = systray.AddMenuItem("Update Available", "A new version is available")
 	updateItem.Hide()
@@ -89,6 +127,9 @@ func onReady() {
 	// Actions
 	openGUIItem = systray.AddMenuItem("Open GUI", "Launch Watchfire GUI")
 	quitItem = systray.AddMenuItem("Quit", "Shut down Watchfire daemon")
+
+	// Initialize previous agents map
+	previousAgents = make(map[string]AgentInfo)
 
 	// Start the daemon services
 	if onStart != nil {
@@ -129,6 +170,22 @@ func pollForUpdate() {
 	}
 }
 
+func openGUI() {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-b", "io.watchfire.app")
+	case "linux":
+		cmd = exec.Command("xdg-open", "watchfire://")
+	default:
+		log.Printf("Open GUI not supported on %s", runtime.GOOS)
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("Failed to open GUI: %v", err)
+	}
+}
+
 func handleClicks() {
 	for {
 		select {
@@ -136,7 +193,7 @@ func handleClicks() {
 			log.Println("Update requested from tray — run 'watchfire update'")
 
 		case <-openGUIItem.ClickedCh:
-			log.Println("Open GUI: not yet implemented")
+			openGUI()
 
 		case <-quitItem.ClickedCh:
 			if state != nil {
@@ -145,45 +202,156 @@ func handleClicks() {
 
 		// Agent slot clicks
 		case <-agentOpenGUI[0].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[0].ClickedCh:
 			stopAgentAtSlot(0)
 		case <-agentOpenGUI[1].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[1].ClickedCh:
 			stopAgentAtSlot(1)
 		case <-agentOpenGUI[2].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[2].ClickedCh:
 			stopAgentAtSlot(2)
 		case <-agentOpenGUI[3].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[3].ClickedCh:
 			stopAgentAtSlot(3)
 		case <-agentOpenGUI[4].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[4].ClickedCh:
 			stopAgentAtSlot(4)
 		case <-agentOpenGUI[5].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[5].ClickedCh:
 			stopAgentAtSlot(5)
 		case <-agentOpenGUI[6].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[6].ClickedCh:
 			stopAgentAtSlot(6)
 		case <-agentOpenGUI[7].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[7].ClickedCh:
 			stopAgentAtSlot(7)
 		case <-agentOpenGUI[8].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[8].ClickedCh:
 			stopAgentAtSlot(8)
 		case <-agentOpenGUI[9].ClickedCh:
-			log.Println("Open in GUI: not yet implemented")
+			openGUI()
 		case <-agentStop[9].ClickedCh:
 			stopAgentAtSlot(9)
+
+		// Project slot clicks
+		case <-projectGenDef[0].ClickedCh:
+			startProjectAtSlot(0, "generate-definition")
+		case <-projectGenTasks[0].ClickedCh:
+			startProjectAtSlot(0, "generate-tasks")
+		case <-projectStartAll[0].ClickedCh:
+			startProjectAtSlot(0, "start-all")
+		case <-projectWildfire[0].ClickedCh:
+			startProjectAtSlot(0, "wildfire")
+		case <-projectOpenGUIItem[0].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[1].ClickedCh:
+			startProjectAtSlot(1, "generate-definition")
+		case <-projectGenTasks[1].ClickedCh:
+			startProjectAtSlot(1, "generate-tasks")
+		case <-projectStartAll[1].ClickedCh:
+			startProjectAtSlot(1, "start-all")
+		case <-projectWildfire[1].ClickedCh:
+			startProjectAtSlot(1, "wildfire")
+		case <-projectOpenGUIItem[1].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[2].ClickedCh:
+			startProjectAtSlot(2, "generate-definition")
+		case <-projectGenTasks[2].ClickedCh:
+			startProjectAtSlot(2, "generate-tasks")
+		case <-projectStartAll[2].ClickedCh:
+			startProjectAtSlot(2, "start-all")
+		case <-projectWildfire[2].ClickedCh:
+			startProjectAtSlot(2, "wildfire")
+		case <-projectOpenGUIItem[2].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[3].ClickedCh:
+			startProjectAtSlot(3, "generate-definition")
+		case <-projectGenTasks[3].ClickedCh:
+			startProjectAtSlot(3, "generate-tasks")
+		case <-projectStartAll[3].ClickedCh:
+			startProjectAtSlot(3, "start-all")
+		case <-projectWildfire[3].ClickedCh:
+			startProjectAtSlot(3, "wildfire")
+		case <-projectOpenGUIItem[3].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[4].ClickedCh:
+			startProjectAtSlot(4, "generate-definition")
+		case <-projectGenTasks[4].ClickedCh:
+			startProjectAtSlot(4, "generate-tasks")
+		case <-projectStartAll[4].ClickedCh:
+			startProjectAtSlot(4, "start-all")
+		case <-projectWildfire[4].ClickedCh:
+			startProjectAtSlot(4, "wildfire")
+		case <-projectOpenGUIItem[4].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[5].ClickedCh:
+			startProjectAtSlot(5, "generate-definition")
+		case <-projectGenTasks[5].ClickedCh:
+			startProjectAtSlot(5, "generate-tasks")
+		case <-projectStartAll[5].ClickedCh:
+			startProjectAtSlot(5, "start-all")
+		case <-projectWildfire[5].ClickedCh:
+			startProjectAtSlot(5, "wildfire")
+		case <-projectOpenGUIItem[5].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[6].ClickedCh:
+			startProjectAtSlot(6, "generate-definition")
+		case <-projectGenTasks[6].ClickedCh:
+			startProjectAtSlot(6, "generate-tasks")
+		case <-projectStartAll[6].ClickedCh:
+			startProjectAtSlot(6, "start-all")
+		case <-projectWildfire[6].ClickedCh:
+			startProjectAtSlot(6, "wildfire")
+		case <-projectOpenGUIItem[6].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[7].ClickedCh:
+			startProjectAtSlot(7, "generate-definition")
+		case <-projectGenTasks[7].ClickedCh:
+			startProjectAtSlot(7, "generate-tasks")
+		case <-projectStartAll[7].ClickedCh:
+			startProjectAtSlot(7, "start-all")
+		case <-projectWildfire[7].ClickedCh:
+			startProjectAtSlot(7, "wildfire")
+		case <-projectOpenGUIItem[7].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[8].ClickedCh:
+			startProjectAtSlot(8, "generate-definition")
+		case <-projectGenTasks[8].ClickedCh:
+			startProjectAtSlot(8, "generate-tasks")
+		case <-projectStartAll[8].ClickedCh:
+			startProjectAtSlot(8, "start-all")
+		case <-projectWildfire[8].ClickedCh:
+			startProjectAtSlot(8, "wildfire")
+		case <-projectOpenGUIItem[8].ClickedCh:
+			openGUI()
+
+		case <-projectGenDef[9].ClickedCh:
+			startProjectAtSlot(9, "generate-definition")
+		case <-projectGenTasks[9].ClickedCh:
+			startProjectAtSlot(9, "generate-tasks")
+		case <-projectStartAll[9].ClickedCh:
+			startProjectAtSlot(9, "start-all")
+		case <-projectWildfire[9].ClickedCh:
+			startProjectAtSlot(9, "wildfire")
+		case <-projectOpenGUIItem[9].ClickedCh:
+			openGUI()
 		}
 	}
 }
@@ -202,8 +370,32 @@ func stopAgentAtSlot(slot int) {
 	go state.StopAgent(projectID)
 }
 
-// UpdateAgents refreshes the agent menu items and tooltip.
+// startProjectAtSlot starts an agent for the project in the given slot with the specified mode.
+func startProjectAtSlot(slot int, mode string) {
+	slotMu.RLock()
+	projectID := projSlotIDs[slot]
+	slotMu.RUnlock()
+
+	if projectID == "" || state == nil {
+		return
+	}
+
+	log.Printf("Starting %s for project %s (slot %d)", mode, projectID, slot)
+	go state.StartAgent(projectID, mode)
+}
+
+// UpdateAgents refreshes the agent menu items, project slots, tray icon, and tooltip.
 func UpdateAgents(agents []AgentInfo) {
+	// Detect agent completions for notifications
+	detectCompletions(previousAgents, agents)
+
+	// Update previous agents map
+	newPrevious := make(map[string]AgentInfo, len(agents))
+	for _, a := range agents {
+		newPrevious[a.ProjectID] = a
+	}
+	previousAgents = newPrevious
+
 	// Update slot → project ID mapping
 	slotMu.Lock()
 	for i := 0; i < maxAgentSlots; i++ {
@@ -217,7 +409,14 @@ func UpdateAgents(agents []AgentInfo) {
 	}
 	slotMu.Unlock()
 
-	// Hide all slots first
+	// Swap tray icon based on active agents
+	if len(agents) > 0 {
+		systray.SetTemplateIcon(iconActive, iconActive)
+	} else {
+		systray.SetTemplateIcon(iconIdle, iconIdle)
+	}
+
+	// Hide all agent slots first
 	for i := 0; i < maxAgentSlots; i++ {
 		agentSlots[i].Hide()
 	}
@@ -231,7 +430,6 @@ func UpdateAgents(agents []AgentInfo) {
 				break
 			}
 			agentSlots[i].SetTitle(formatAgentTitle(agent))
-			// Set colored circle icon for the menu item
 			if icon := getColoredCircleIcon(agent.ProjectColor); icon != nil {
 				agentSlots[i].SetIcon(icon)
 			}
@@ -239,7 +437,70 @@ func UpdateAgents(agents []AgentInfo) {
 		}
 	}
 
+	// Update project slots (idle projects only)
+	updateProjectSlots(agents)
+
 	updateTooltip()
+}
+
+// updateProjectSlots shows idle projects with start actions.
+func updateProjectSlots(agents []AgentInfo) {
+	if state == nil {
+		return
+	}
+
+	// Build set of projects that have running agents
+	agentSet := make(map[string]struct{}, len(agents))
+	for _, a := range agents {
+		agentSet[a.ProjectID] = struct{}{}
+	}
+
+	projects := state.Projects()
+
+	// Hide all project slots first
+	for i := 0; i < maxProjectSlots; i++ {
+		projectSlots[i].Hide()
+	}
+
+	slotMu.Lock()
+	for i := 0; i < maxProjectSlots; i++ {
+		projSlotIDs[i] = ""
+	}
+
+	slot := 0
+	for _, proj := range projects {
+		if slot >= maxProjectSlots {
+			break
+		}
+		// Skip projects that already have an agent running
+		if _, hasAgent := agentSet[proj.ProjectID]; hasAgent {
+			continue
+		}
+		projSlotIDs[slot] = proj.ProjectID
+		projectSlots[slot].SetTitle(fmt.Sprintf("\U0001F4C1 %s", proj.ProjectName))
+		if icon := getColoredCircleIcon(proj.ProjectColor); icon != nil {
+			projectSlots[slot].SetIcon(icon)
+		}
+		projectSlots[slot].Show()
+		slot++
+	}
+	slotMu.Unlock()
+}
+
+// detectCompletions fires OS notifications for agents that have stopped since the last update.
+func detectCompletions(old map[string]AgentInfo, current []AgentInfo) {
+	if old == nil {
+		return
+	}
+	currentSet := make(map[string]struct{}, len(current))
+	for _, a := range current {
+		currentSet[a.ProjectID] = struct{}{}
+	}
+	for pid, agent := range old {
+		if _, stillRunning := currentSet[pid]; !stillRunning {
+			notifyAgentDone(agent.ProjectName, agent.Mode)
+		}
+	}
 }
 
 func updateTooltip() {
@@ -268,6 +529,45 @@ func formatAgentTitle(agent AgentInfo) string {
 	default:
 		return agent.ProjectName
 	}
+}
+
+// generateActiveIcon overlays a small orange dot (notification badge) on the bottom-right
+// of the given PNG icon data.
+func generateActiveIcon(baseData []byte) []byte {
+	src, err := png.Decode(bytes.NewReader(baseData))
+	if err != nil {
+		log.Printf("Failed to decode tray icon for active variant: %v", err)
+		return baseData
+	}
+
+	bounds := src.Bounds()
+	img := image.NewRGBA(bounds)
+	draw.Draw(img, bounds, src, bounds.Min, draw.Src)
+
+	// Draw orange dot in the bottom-right corner
+	dotColor := color.RGBA{R: 255, G: 140, B: 0, A: 255}
+	dotRadius := bounds.Dx() / 5
+	if dotRadius < 3 {
+		dotRadius = 3
+	}
+	cx := bounds.Max.X - dotRadius - 1
+	cy := bounds.Max.Y - dotRadius - 1
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			dx := x - cx
+			dy := y - cy
+			if dx*dx+dy*dy <= dotRadius*dotRadius {
+				img.Set(x, y, dotColor)
+			}
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return baseData
+	}
+	return buf.Bytes()
 }
 
 // getColoredCircleIcon returns a PNG icon of a colored circle for the given hex color.
@@ -315,7 +615,6 @@ func generateColoredCircle(hexColor string, size int) []byte {
 			if dx*dx+dy*dy <= radius*radius {
 				img.Set(x, y, fillColor)
 			}
-			// Transparent elsewhere (default zero value is transparent)
 		}
 	}
 

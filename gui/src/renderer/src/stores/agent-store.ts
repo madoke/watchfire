@@ -47,9 +47,20 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     try {
       const client = getAgentClient()
       const status = await client.getAgentStatus({ projectId })
+      const existing = get().statuses[projectId]
+      if (
+        existing &&
+        existing.isRunning === status.isRunning &&
+        existing.mode === status.mode &&
+        existing.taskNumber === status.taskNumber &&
+        existing.taskTitle === status.taskTitle &&
+        existing.wildfirePhase === status.wildfirePhase
+      ) return
       set((s) => ({ statuses: { ...s.statuses, [projectId]: status } }))
     } catch {
       // not running — set explicit idle status so consumers know the fetch completed
+      const existing = get().statuses[projectId]
+      if (existing && !existing.isRunning) return
       set((s) => ({
         statuses: { ...s.statuses, [projectId]: { isRunning: false } as AgentStatus }
       }))

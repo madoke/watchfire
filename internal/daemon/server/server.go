@@ -550,6 +550,50 @@ func (t *TrayState) UpdateAvailable() (bool, string) {
 	return available, version
 }
 
+// Projects returns information about all registered projects.
+func (t *TrayState) Projects() []tray.ProjectInfo {
+	index, err := config.LoadProjectsIndex()
+	if err != nil {
+		return nil
+	}
+	running := t.srv.agentManager.ListAgents()
+	agentSet := make(map[string]struct{}, len(running))
+	for _, a := range running {
+		agentSet[a.ProjectID] = struct{}{}
+	}
+
+	projects := make([]tray.ProjectInfo, 0, len(index.Projects))
+	for _, entry := range index.Projects {
+		_, hasAgent := agentSet[entry.ProjectID]
+		proj, err := config.LoadProject(entry.Path)
+		projectColor := ""
+		if err == nil && proj != nil {
+			projectColor = proj.Color
+		}
+		projects = append(projects, tray.ProjectInfo{
+			ProjectID:    entry.ProjectID,
+			ProjectName:  entry.Name,
+			ProjectColor: projectColor,
+			HasAgent:     hasAgent,
+		})
+	}
+	return projects
+}
+
+// StartAgent starts an agent for the given project with the specified mode.
+func (t *TrayState) StartAgent(projectID, mode string) {
+	// Delegate to the agentService's StartAgent via a synthetic request
+	svc := &agentService{manager: t.srv.agentManager, watcher: t.srv.watcher}
+	_, err := svc.StartAgent(context.Background(), &pb.StartAgentRequest{
+		ProjectId: projectID,
+		Mode:      mode,
+		Meta:      &pb.RequestMeta{Origin: "tray"},
+	})
+	if err != nil {
+		log.Printf("Failed to start agent from tray: %v", err)
+	}
+}
+
 // RequestShutdown sends SIGINT to the current process to trigger a graceful shutdown.
 func (t *TrayState) RequestShutdown() {
 	p, err := os.FindProcess(os.Getpid())

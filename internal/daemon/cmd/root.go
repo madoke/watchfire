@@ -174,6 +174,19 @@ func (l *lazyDaemonState) UpdateAvailable() (bool, string) {
 	return false, ""
 }
 
+func (l *lazyDaemonState) Projects() []tray.ProjectInfo {
+	if srv := l.getSrv(); srv != nil {
+		return server.NewTrayState(srv).Projects()
+	}
+	return nil
+}
+
+func (l *lazyDaemonState) StartAgent(projectID, mode string) {
+	if srv := l.getSrv(); srv != nil {
+		server.NewTrayState(srv).StartAgent(projectID, mode)
+	}
+}
+
 func (l *lazyDaemonState) RequestShutdown() {
 	if srv := l.getSrv(); srv != nil {
 		server.NewTrayState(srv).RequestShutdown()

@@ -110,6 +110,8 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
       }
     }
 
+    term.clear()
+
     const abort = subscribeRawOutput(
       projectId,
       (data) => {

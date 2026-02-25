@@ -34,6 +34,20 @@ export function statusColor(status: string): string {
   }
 }
 
+/** Shallow-compare two arrays of objects (by own enumerable properties) */
+export function shallowEqualArray<T extends Record<string, unknown>>(a: T[], b: T[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    const keysA = Object.keys(a[i])
+    const keysB = Object.keys(b[i])
+    if (keysA.length !== keysB.length) return false
+    for (const key of keysA) {
+      if (a[i][key] !== b[i][key]) return false
+    }
+  }
+  return true
+}
+
 /** Merge class names */
 export function cn(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ')

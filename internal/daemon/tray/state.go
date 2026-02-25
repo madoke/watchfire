@@ -6,7 +6,9 @@ type DaemonState interface {
 	Port() int
 	ProjectCount() int
 	ActiveAgents() []AgentInfo
+	Projects() []ProjectInfo
 	StopAgent(projectID string)
+	StartAgent(projectID, mode string)
 	RequestShutdown()
 	UpdateAvailable() (available bool, version string)
 }
@@ -19,4 +21,12 @@ type AgentInfo struct {
 	Mode         string // "chat", "task", "start-all", "wildfire"
 	TaskNumber   int
 	TaskTitle    string
+}
+
+// ProjectInfo describes a registered project for the tray menu.
+type ProjectInfo struct {
+	ProjectID    string
+	ProjectName  string
+	ProjectColor string
+	HasAgent     bool
 }
