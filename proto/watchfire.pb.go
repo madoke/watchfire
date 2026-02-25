@@ -85,25 +85,26 @@ func (x *RequestMeta) GetVersion() string {
 }
 
 type Project struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	ProjectId        string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Path             string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	Status           string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // "active" | "archived"
-	Color            string                 `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`   // Hex color for GUI
-	DefaultBranch    string                 `protobuf:"bytes,6,opt,name=default_branch,json=defaultBranch,proto3" json:"default_branch,omitempty"`
-	DefaultAgent     string                 `protobuf:"bytes,7,opt,name=default_agent,json=defaultAgent,proto3" json:"default_agent,omitempty"`
-	Sandbox          string                 `protobuf:"bytes,8,opt,name=sandbox,proto3" json:"sandbox,omitempty"`
-	AutoMerge        bool                   `protobuf:"varint,9,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	AutoDeleteBranch bool                   `protobuf:"varint,10,opt,name=auto_delete_branch,json=autoDeleteBranch,proto3" json:"auto_delete_branch,omitempty"`
-	AutoStartTasks   bool                   `protobuf:"varint,11,opt,name=auto_start_tasks,json=autoStartTasks,proto3" json:"auto_start_tasks,omitempty"`
-	Definition       string                 `protobuf:"bytes,12,opt,name=definition,proto3" json:"definition,omitempty"`
-	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt        *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	NextTaskNumber   int32                  `protobuf:"varint,15,opt,name=next_task_number,json=nextTaskNumber,proto3" json:"next_task_number,omitempty"`
-	Position         int32                  `protobuf:"varint,16,opt,name=position,proto3" json:"position,omitempty"` // Display ordering in GUI
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId           string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Name                string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Path                string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Status              string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // "active" | "archived"
+	Color               string                 `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`   // Hex color for GUI
+	DefaultBranch       string                 `protobuf:"bytes,6,opt,name=default_branch,json=defaultBranch,proto3" json:"default_branch,omitempty"`
+	DefaultAgent        string                 `protobuf:"bytes,7,opt,name=default_agent,json=defaultAgent,proto3" json:"default_agent,omitempty"`
+	Sandbox             string                 `protobuf:"bytes,8,opt,name=sandbox,proto3" json:"sandbox,omitempty"`
+	AutoMerge           bool                   `protobuf:"varint,9,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
+	AutoDeleteBranch    bool                   `protobuf:"varint,10,opt,name=auto_delete_branch,json=autoDeleteBranch,proto3" json:"auto_delete_branch,omitempty"`
+	AutoStartTasks      bool                   `protobuf:"varint,11,opt,name=auto_start_tasks,json=autoStartTasks,proto3" json:"auto_start_tasks,omitempty"`
+	Definition          string                 `protobuf:"bytes,12,opt,name=definition,proto3" json:"definition,omitempty"`
+	CreatedAt           *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	NextTaskNumber      int32                  `protobuf:"varint,15,opt,name=next_task_number,json=nextTaskNumber,proto3" json:"next_task_number,omitempty"`
+	Position            int32                  `protobuf:"varint,16,opt,name=position,proto3" json:"position,omitempty"`                                                 // Display ordering in GUI
+	SecretsInstructions string                 `protobuf:"bytes,17,opt,name=secrets_instructions,json=secretsInstructions,proto3" json:"secrets_instructions,omitempty"` // Content of secrets/instructions.md
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Project) Reset() {
@@ -246,6 +247,13 @@ func (x *Project) GetPosition() int32 {
 		return x.Position
 	}
 	return 0
+}
+
+func (x *Project) GetSecretsInstructions() string {
+	if x != nil {
+		return x.SecretsInstructions
+	}
+	return ""
 }
 
 type ProjectId struct {
@@ -445,19 +453,20 @@ func (x *CreateProjectRequest) GetAutoStartTasks() bool {
 }
 
 type UpdateProjectRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Meta             *RequestMeta           `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
-	ProjectId        string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	Name             *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Color            *string                `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
-	DefaultBranch    *string                `protobuf:"bytes,5,opt,name=default_branch,json=defaultBranch,proto3,oneof" json:"default_branch,omitempty"`
-	DefaultAgent     *string                `protobuf:"bytes,6,opt,name=default_agent,json=defaultAgent,proto3,oneof" json:"default_agent,omitempty"`
-	AutoMerge        *bool                  `protobuf:"varint,7,opt,name=auto_merge,json=autoMerge,proto3,oneof" json:"auto_merge,omitempty"`
-	AutoDeleteBranch *bool                  `protobuf:"varint,8,opt,name=auto_delete_branch,json=autoDeleteBranch,proto3,oneof" json:"auto_delete_branch,omitempty"`
-	AutoStartTasks   *bool                  `protobuf:"varint,9,opt,name=auto_start_tasks,json=autoStartTasks,proto3,oneof" json:"auto_start_tasks,omitempty"`
-	Definition       *string                `protobuf:"bytes,10,opt,name=definition,proto3,oneof" json:"definition,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Meta                *RequestMeta           `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
+	ProjectId           string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Name                *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Color               *string                `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	DefaultBranch       *string                `protobuf:"bytes,5,opt,name=default_branch,json=defaultBranch,proto3,oneof" json:"default_branch,omitempty"`
+	DefaultAgent        *string                `protobuf:"bytes,6,opt,name=default_agent,json=defaultAgent,proto3,oneof" json:"default_agent,omitempty"`
+	AutoMerge           *bool                  `protobuf:"varint,7,opt,name=auto_merge,json=autoMerge,proto3,oneof" json:"auto_merge,omitempty"`
+	AutoDeleteBranch    *bool                  `protobuf:"varint,8,opt,name=auto_delete_branch,json=autoDeleteBranch,proto3,oneof" json:"auto_delete_branch,omitempty"`
+	AutoStartTasks      *bool                  `protobuf:"varint,9,opt,name=auto_start_tasks,json=autoStartTasks,proto3,oneof" json:"auto_start_tasks,omitempty"`
+	Definition          *string                `protobuf:"bytes,10,opt,name=definition,proto3,oneof" json:"definition,omitempty"`
+	SecretsInstructions *string                `protobuf:"bytes,11,opt,name=secrets_instructions,json=secretsInstructions,proto3,oneof" json:"secrets_instructions,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateProjectRequest) Reset() {
@@ -556,6 +565,13 @@ func (x *UpdateProjectRequest) GetAutoStartTasks() bool {
 func (x *UpdateProjectRequest) GetDefinition() string {
 	if x != nil && x.Definition != nil {
 		return *x.Definition
+	}
+	return ""
+}
+
+func (x *UpdateProjectRequest) GetSecretsInstructions() string {
+	if x != nil && x.SecretsInstructions != nil {
+		return *x.SecretsInstructions
 	}
 	return ""
 }
@@ -3376,7 +3392,7 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\vRequestMeta\x12\x16\n" +
 	"\x06origin\x18\x01 \x01(\tR\x06origin\x12\x1b\n" +
 	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\"\xb7\x04\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\"\xea\x04\n" +
 	"\aProject\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x12\n" +
@@ -3400,7 +3416,8 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12(\n" +
 	"\x10next_task_number\x18\x0f \x01(\x05R\x0enextTaskNumber\x12\x1a\n" +
-	"\bposition\x18\x10 \x01(\x05R\bposition\"V\n" +
+	"\bposition\x18\x10 \x01(\x05R\bposition\x121\n" +
+	"\x14secrets_instructions\x18\x11 \x01(\tR\x13secretsInstructions\"V\n" +
 	"\tProjectId\x12*\n" +
 	"\x04meta\x18\x01 \x01(\v2\x16.watchfire.RequestMetaR\x04meta\x12\x1d\n" +
 	"\n" +
@@ -3418,7 +3435,7 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\n" +
 	"auto_merge\x18\x06 \x01(\bR\tautoMerge\x12,\n" +
 	"\x12auto_delete_branch\x18\a \x01(\bR\x10autoDeleteBranch\x12(\n" +
-	"\x10auto_start_tasks\x18\b \x01(\bR\x0eautoStartTasks\"\x98\x04\n" +
+	"\x10auto_start_tasks\x18\b \x01(\bR\x0eautoStartTasks\"\xe9\x04\n" +
 	"\x14UpdateProjectRequest\x12*\n" +
 	"\x04meta\x18\x01 \x01(\v2\x16.watchfire.RequestMetaR\x04meta\x12\x1d\n" +
 	"\n" +
@@ -3434,7 +3451,8 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\n" +
 	"definition\x18\n" +
 	" \x01(\tH\aR\n" +
-	"definition\x88\x01\x01B\a\n" +
+	"definition\x88\x01\x01\x126\n" +
+	"\x14secrets_instructions\x18\v \x01(\tH\bR\x13secretsInstructions\x88\x01\x01B\a\n" +
 	"\x05_nameB\b\n" +
 	"\x06_colorB\x11\n" +
 	"\x0f_default_branchB\x10\n" +
@@ -3442,7 +3460,8 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\v_auto_mergeB\x15\n" +
 	"\x13_auto_delete_branchB\x13\n" +
 	"\x11_auto_start_tasksB\r\n" +
-	"\v_definition\"\xc5\x01\n" +
+	"\v_definitionB\x17\n" +
+	"\x15_secrets_instructions\"\xc5\x01\n" +
 	"\aGitInfo\x12%\n" +
 	"\x0ecurrent_branch\x18\x01 \x01(\tR\rcurrentBranch\x12\x1d\n" +
 	"\n" +

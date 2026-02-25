@@ -110,6 +110,12 @@ func ComposePrompt(project *models.Project) string {
 		b.WriteString(project.Definition)
 	}
 
+	// 3. Secrets & setup instructions (if available)
+	if project != nil && project.SecretsInstructions != "" {
+		b.WriteString("\n\n## Secrets & Setup Instructions\n\n")
+		b.WriteString(project.SecretsInstructions)
+	}
+
 	return b.String()
 }
 

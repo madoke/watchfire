@@ -16,6 +16,8 @@ Watchfire delegates coding tasks to AI agents, running them in sandboxed environ
 │   │   ├── 0001.yaml
 │   │   ├── 0002.yaml
 │   │   └── ...
+│   ├── secrets/                  # Secrets and setup instructions
+│   │   └── instructions.md       # Agent-readable instructions for external services
 │   └── worktrees/                # Task worktrees
 │       └── {task_number}/        # Your isolated workspace
 │           └── <project files>   # Full copy of codebase

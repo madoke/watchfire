@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ListTodo, FileText, Trash2, Settings, GitBranch, Globe, Circle, PanelRightClose, PanelRight, Square, Flame, Play, Sparkles } from 'lucide-react'
+import { ListTodo, FileText, Trash2, Settings, GitBranch, Globe, Circle, PanelRightClose, PanelRight, Square, Flame, Play, Sparkles, KeyRound } from 'lucide-react'
 import { useAppStore } from '../../stores/app-store'
 import { useProjectsStore } from '../../stores/projects-store'
 import { useTasksStore } from '../../stores/tasks-store'
@@ -12,15 +12,17 @@ import { useToast } from '../../components/ui/Toast'
 import { cn } from '../../lib/utils'
 import { TasksTab } from './TasksTab/TasksTab'
 import { DefinitionTab } from './DefinitionTab'
+import { SecretsTab } from './SecretsTab'
 import { TrashTab } from './TrashTab'
 import { SettingsTab } from './SettingsTab'
 import { RightPanel } from './RightPanel/RightPanel'
 
-type CenterTab = 'tasks' | 'definition' | 'trash' | 'settings'
+type CenterTab = 'tasks' | 'definition' | 'secrets' | 'trash' | 'settings'
 
 const CENTER_TABS: { key: CenterTab; icon: typeof ListTodo; label: string }[] = [
   { key: 'tasks', icon: ListTodo, label: 'Tasks' },
   { key: 'definition', icon: FileText, label: 'Definition' },
+  { key: 'secrets', icon: KeyRound, label: 'Secrets' },
   { key: 'trash', icon: Trash2, label: 'Trash' },
   { key: 'settings', icon: Settings, label: 'Settings' }
 ]
@@ -29,6 +31,7 @@ export function ProjectView() {
   const projectId = useAppStore((s) => s.selectedProjectId)
   const projects = useProjectsStore((s) => s.projects)
   const agentStatus = useProjectsStore((s) => s.agentStatuses[projectId || ''])
+  const fetchAgentStatus = useProjectsStore((s) => s.fetchAgentStatus)
   const fetchTasks = useTasksStore((s) => s.fetchTasks)
   const startAgent = useAgentStore((s) => s.startAgent)
   const stopAgent = useAgentStore((s) => s.stopAgent)
@@ -75,10 +78,18 @@ export function ProjectView() {
   }, [rightPanelWidth])
 
   const project = projects.find((p) => p.projectId === projectId)
+  const isAgentRunning = agentStatus?.isRunning
 
   useEffect(() => {
     if (projectId) fetchTasks(projectId, true)
   }, [projectId])
+
+  // Poll tasks every 3s while agent is running
+  useEffect(() => {
+    if (!projectId || !isAgentRunning) return
+    const interval = setInterval(() => fetchTasks(projectId), 3000)
+    return () => clearInterval(interval)
+  }, [projectId, isAgentRunning])
 
   // Fetch git info on mount and poll every 10s
   useEffect(() => {
@@ -88,8 +99,6 @@ export function ProjectView() {
     return () => clearInterval(interval)
   }, [projectId])
 
-  const isAgentRunning = agentStatus?.isRunning
-
   const handleStartAgent = async (mode: string) => {
     if (!projectId) return
     try {
@@ -98,6 +107,7 @@ export function ProjectView() {
         await stopAgent(projectId)
       }
       await startAgent(projectId, mode)
+      await fetchAgentStatus(projectId)
     } catch (err) {
       toast(String(err), 'error')
     }
@@ -107,6 +117,7 @@ export function ProjectView() {
     if (!projectId) return
     try {
       await stopAgent(projectId)
+      await fetchAgentStatus(projectId)
     } catch (err) {
       toast(String(err), 'error')
     }
@@ -139,70 +150,65 @@ export function ProjectView() {
           </button>
         </div>
 
-        {/* Row 2: Action buttons (left) + Git info (right) */}
-        <div className="flex items-center justify-between">
-          {/* Action buttons */}
-          <div className="flex items-center gap-1.5">
-            {/* Show action buttons when idle or in chat mode */}
-            {(!isAgentRunning || agentStatus?.mode === 'chat') && (
-              <>
-                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-definition')} title="Generate project definition from codebase">
-                  <Sparkles size={12} />
-                  Generate
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-tasks')} title="Generate tasks from project definition">
-                  <ListTodo size={12} />
-                  Plan
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('start-all')} title="Run all ready tasks sequentially">
-                  <Play size={12} />
-                  Run All
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleStartAgent('wildfire')} title="Autonomous loop: generate, plan, and execute">
-                  <Flame size={12} />
-                  Wildfire
-                </Button>
-              </>
-            )}
-            {/* Show stop button when any agent is running */}
-            {isAgentRunning && (
-              <Button size="sm" variant="danger" onClick={handleStopAgent} title="Stop the running agent">
-                <Square size={12} />
-                Stop
-              </Button>
-            )}
-          </div>
+        {/* Row 2: Git info */}
+        <div className="flex items-center gap-2 text-xs text-[var(--wf-text-muted)]">
+          {gitInfo?.currentBranch && (
+            <>
+              <GitBranch size={12} />
+              <span>{gitInfo.currentBranch}</span>
+            </>
+          )}
+          {gitInfo?.remoteUrl && (
+            <>
+              <span className="opacity-40">·</span>
+              <Globe size={12} />
+              <span>{gitInfo.remoteUrl}</span>
+            </>
+          )}
+          {gitInfo?.isDirty && (
+            <>
+              <span className="opacity-40">·</span>
+              <Circle size={10} className="text-yellow-500 fill-yellow-500" />
+              <span>{gitInfo.uncommittedCount} {gitInfo.uncommittedCount === 1 ? 'change' : 'changes'}</span>
+            </>
+          )}
+          {(gitInfo?.ahead > 0 || gitInfo?.behind > 0) && (
+            <>
+              <span className="opacity-40">·</span>
+              {gitInfo.ahead > 0 && <span>{gitInfo.ahead}↑</span>}
+              {gitInfo.behind > 0 && <span>{gitInfo.behind}↓</span>}
+            </>
+          )}
+        </div>
 
-          {/* Git info */}
-          <div className="flex items-center gap-2 text-xs text-[var(--wf-text-muted)]">
-            {gitInfo?.currentBranch && (
-              <>
-                <GitBranch size={12} />
-                <span>{gitInfo.currentBranch}</span>
-              </>
-            )}
-            {gitInfo?.remoteUrl && (
-              <>
-                <span className="opacity-40">·</span>
-                <Globe size={12} />
-                <span>{gitInfo.remoteUrl}</span>
-              </>
-            )}
-            {gitInfo?.isDirty && (
-              <>
-                <span className="opacity-40">·</span>
-                <Circle size={10} className="text-yellow-500 fill-yellow-500" />
-                <span>{gitInfo.uncommittedCount} {gitInfo.uncommittedCount === 1 ? 'change' : 'changes'}</span>
-              </>
-            )}
-            {(gitInfo?.ahead > 0 || gitInfo?.behind > 0) && (
-              <>
-                <span className="opacity-40">·</span>
-                {gitInfo.ahead > 0 && <span>{gitInfo.ahead}↑</span>}
-                {gitInfo.behind > 0 && <span>{gitInfo.behind}↓</span>}
-              </>
-            )}
-          </div>
+        {/* Row 3: Action buttons */}
+        <div className="flex items-center gap-1.5">
+          {(!isAgentRunning || agentStatus?.mode === 'chat') && (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-definition')} title="Generate project definition from codebase">
+                <Sparkles size={12} />
+                Generate
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-tasks')} title="Generate tasks from project definition">
+                <ListTodo size={12} />
+                Plan
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('start-all')} title="Run all ready tasks sequentially">
+                <Play size={12} />
+                Run All
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('wildfire')} title="Autonomous loop: generate, plan, and execute">
+                <Flame size={12} />
+                Wildfire
+              </Button>
+            </>
+          )}
+          {isAgentRunning && (
+            <Button size="sm" variant="danger" onClick={handleStopAgent} title="Stop the running agent">
+              <Square size={12} />
+              Stop
+            </Button>
+          )}
         </div>
       </div>
 
@@ -236,6 +242,7 @@ export function ProjectView() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {centerTab === 'tasks' && <TasksTab projectId={projectId} />}
             {centerTab === 'definition' && <DefinitionTab projectId={projectId} project={project} />}
+            {centerTab === 'secrets' && <SecretsTab projectId={projectId} project={project} />}
             {centerTab === 'trash' && <TrashTab projectId={projectId} />}
             {centerTab === 'settings' && <SettingsTab projectId={projectId} project={project} />}
           </div>

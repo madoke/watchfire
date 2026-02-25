@@ -101,6 +101,9 @@ func (s *projectService) UpdateProject(_ context.Context, req *pb.UpdateProjectR
 	if req.Definition != nil {
 		opts.Definition = req.Definition
 	}
+	if req.SecretsInstructions != nil {
+		opts.SecretsInstructions = req.SecretsInstructions
+	}
 
 	pwe, err := s.manager.UpdateProject(opts)
 	if err != nil {
@@ -1268,8 +1271,9 @@ func modelToProtoProject(pwe project.ProjectWithEntry) *pb.Project {
 		AutoMerge:        p.AutoMerge,
 		AutoDeleteBranch: p.AutoDeleteBranch,
 		AutoStartTasks:   p.AutoStartTasks,
-		Definition:       p.Definition,
-		CreatedAt:        timestamppb.New(p.CreatedAt),
+		Definition:          p.Definition,
+		SecretsInstructions: p.SecretsInstructions,
+		CreatedAt:           timestamppb.New(p.CreatedAt),
 		UpdatedAt:        timestamppb.New(p.UpdatedAt),
 		NextTaskNumber:   int32(p.NextTaskNumber),
 		Position:         int32(pwe.Position),

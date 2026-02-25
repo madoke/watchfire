@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/watchfire-io/watchfire/internal/models"
@@ -42,6 +43,13 @@ func LoadProject(projectPath string) (*models.Project, error) {
 	if err := LoadYAML(path, &project); err != nil {
 		return nil, err
 	}
+
+	// Load secrets instructions from secrets/instructions.md
+	secretsPath := ProjectSecretsInstructionsFile(projectPath)
+	if data, err := os.ReadFile(secretsPath); err == nil {
+		project.SecretsInstructions = string(data)
+	}
+
 	return &project, nil
 }
 
@@ -50,7 +58,19 @@ func SaveProject(projectPath string, project *models.Project) error {
 	if err := EnsureProjectDir(projectPath); err != nil {
 		return err
 	}
-	return SaveYAML(ProjectFile(projectPath), project)
+	if err := SaveYAML(ProjectFile(projectPath), project); err != nil {
+		return err
+	}
+
+	// Write secrets instructions to secrets/instructions.md if set
+	if project.SecretsInstructions != "" {
+		secretsPath := ProjectSecretsInstructionsFile(projectPath)
+		if err := os.WriteFile(secretsPath, []byte(project.SecretsInstructions), 0o644); err != nil {
+			return fmt.Errorf("failed to write secrets instructions: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // RegisterProject adds a project to the global index.

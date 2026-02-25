@@ -20,6 +20,9 @@ const (
 	// WorktreesDirName is the name of the worktrees directory within a project.
 	WorktreesDirName = "worktrees"
 
+	// SecretsDirName is the name of the secrets directory within a project.
+	SecretsDirName = "secrets"
+
 	// LogsDirName is the name of the logs directory.
 	LogsDirName = "logs"
 )
@@ -30,7 +33,8 @@ const (
 	AgentsFileName   = "agents.yaml"
 	ProjectsFileName = "projects.yaml"
 	SettingsFileName = "settings.yaml"
-	ProjectFileName  = "project.yaml"
+	ProjectFileName              = "project.yaml"
+	SecretsInstructionsFileName = "instructions.md"
 )
 
 // GlobalDir returns the path to the global Watchfire directory (~/.watchfire/).
@@ -107,6 +111,16 @@ func ProjectWorktreesDir(projectPath string) string {
 	return filepath.Join(ProjectDir(projectPath), WorktreesDirName)
 }
 
+// ProjectSecretsDir returns the path to a project's secrets directory.
+func ProjectSecretsDir(projectPath string) string {
+	return filepath.Join(ProjectDir(projectPath), SecretsDirName)
+}
+
+// ProjectSecretsInstructionsFile returns the path to a project's secrets/instructions.md file.
+func ProjectSecretsInstructionsFile(projectPath string) string {
+	return filepath.Join(ProjectSecretsDir(projectPath), SecretsInstructionsFileName)
+}
+
 // TaskFile returns the path to a specific task file.
 func TaskFile(projectPath string, taskNumber int) string {
 	return filepath.Join(ProjectTasksDir(projectPath), TaskFileName(taskNumber))
@@ -151,7 +165,11 @@ func EnsureProjectDir(projectPath string) error {
 		return err
 	}
 	// Create worktrees directory
-	return os.MkdirAll(ProjectWorktreesDir(projectPath), 0o755)
+	if err := os.MkdirAll(ProjectWorktreesDir(projectPath), 0o755); err != nil {
+		return err
+	}
+	// Create secrets directory
+	return os.MkdirAll(ProjectSecretsDir(projectPath), 0o755)
 }
 
 // ProjectExists checks if a project's .watchfire/ directory exists.

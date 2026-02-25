@@ -322,7 +322,7 @@ The CLI/TUI is the primary interface for developers. A single binary (`watchfire
 |---------|----------|-------------|
 | **Project dot** | Far left | Colored dot using `project.color` |
 | **Project name** | After dot | Project name from `project.yaml` |
-| **Left tabs** | Center-left | `Tasks`, `Definition`, `Settings` — active tab highlighted |
+| **Left tabs** | Center-left | `Tasks`, `Definition`, `Secrets`, `Settings` — active tab highlighted |
 | **Right tabs** | Center-right | `Chat`, `Logs` — active tab highlighted |
 | **Agent badge** | Far right | `● Idle`, `● Working`, `● Wildfire`, `⚠ Issue` |
 
@@ -543,6 +543,18 @@ The Definition tab displays the project definition text.
 | **Suspend/resume** | TUI suspends (Bubbletea gives up terminal), external editor takes over, TUI resumes when editor exits |
 | **Save** | On editor exit, TUI reads temp file content, calls `UpdateProject` RPC with new definition |
 | **Pattern** | Same approach as existing CLI `definition.go` — external editor for multiline content |
+
+### TUI Secrets Editor
+
+The Secrets tab displays the secrets/instructions.md content.
+
+| Aspect | Behavior |
+|--------|----------|
+| **Display** | Read-only `bubbles/viewport` showing secrets instructions as plain text |
+| **Edit** | Press `e` or `Enter` → launches `$EDITOR` via `tea.ExecProcess` |
+| **Storage** | `.watchfire/secrets/instructions.md` — plain Markdown file on disk (not embedded in project.yaml) |
+| **Agent injection** | Content appended to system prompt under `## Secrets & Setup Instructions` section |
+| **GUI** | Textarea with 1s debounced auto-save, same pattern as Definition tab |
 
 ### TUI Settings View
 
@@ -903,6 +915,8 @@ Split layout with tabs:
     ├── project.yaml        # Project definition
     ├── tasks/
     │   └── 0001.yaml       # Task files (4-digit padded task_number)
+    ├── secrets/
+    │   └── instructions.md # Agent-readable instructions for external services/credentials
     └── worktrees/
         └── 0001/           # Git worktrees (named by task_number)
 ```

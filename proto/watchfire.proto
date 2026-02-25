@@ -39,6 +39,7 @@ message Project {
   google.protobuf.Timestamp updated_at = 14;
   int32 next_task_number = 15;
   int32 position = 16;                          // Display ordering in GUI
+  string secrets_instructions = 17;             // Content of secrets/instructions.md
 }
 
 message ProjectId {
@@ -72,6 +73,7 @@ message UpdateProjectRequest {
   optional bool auto_delete_branch = 8;
   optional bool auto_start_tasks = 9;
   optional string definition = 10;
+  optional string secrets_instructions = 11;
 }
 
 message GitInfo {

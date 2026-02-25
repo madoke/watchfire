@@ -14,6 +14,7 @@ The always-on backend that manages everything:
 - **File watching** — Real-time detection of task completion and phase signals via fsnotify, with polling fallback for reliability
 - **Session logs** — Every agent session recorded to `~/.watchfire/logs/` with YAML metadata
 - **System tray** — Menu bar icon showing daemon status, active agents with colored project dots, and quick stop/quit actions
+- **Secrets folder** — `.watchfire/secrets/instructions.md` for providing agents with external service credentials and setup instructions, injected into the system prompt
 - **Issue detection** — Monitors agent output for auth errors (401, expired tokens) and rate limits (429), with real-time notifications to clients
 - **gRPC + gRPC-Web** — Single port serves both native gRPC (CLI/TUI) and gRPC-Web (Electron GUI)
 - **Auto-discovery** — Writes connection info to `~/.watchfire/daemon.yaml` so clients find it automatically
@@ -54,7 +55,7 @@ Interactive split-view terminal interface:
 Multi-project desktop application:
 
 - **Dashboard** — Project cards with task counts, status dots, active task display
-- **Project view** — Tasks, Definition, Trash, Settings tabs with collapsible right panel (Chat, Branches, Logs)
+- **Project view** — Tasks, Definition, Secrets, Trash, Settings tabs with collapsible right panel (Chat, Branches, Logs)
 - **Add Project wizard** — Three-step flow: project info → git config → definition
 - **Branch management** — View, merge, delete, and bulk-manage worktree branches
 - **Agent terminal** — Live streaming via gRPC-Web with input support

@@ -39,7 +39,8 @@ type Project struct {
 	AutoMerge        bool      `yaml:"auto_merge"`
 	AutoDeleteBranch bool      `yaml:"auto_delete_branch"`
 	AutoStartTasks   bool      `yaml:"auto_start_tasks"`
-	Definition       string    `yaml:"definition"`
+	Definition            string `yaml:"definition"`
+	SecretsInstructions   string `yaml:"-"` // Loaded from secrets/instructions.md, not stored in project.yaml
 	CreatedAt        time.Time `yaml:"created_at"`
 	UpdatedAt        time.Time `yaml:"updated_at"`
 	NextTaskNumber   int       `yaml:"next_task_number"`
