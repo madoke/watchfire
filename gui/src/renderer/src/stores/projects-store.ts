@@ -11,6 +11,7 @@ interface ProjectsState {
   fetchProjects: () => Promise<void>
   fetchAgentStatus: (projectId: string) => Promise<void>
   fetchAllAgentStatuses: () => Promise<void>
+  reorderProjects: (projectIds: string[]) => Promise<void>
 }
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
@@ -57,6 +58,29 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const { projects } = get()
     for (const p of projects) {
       get().fetchAgentStatus(p.projectId)
+    }
+  },
+
+  reorderProjects: async (projectIds) => {
+    // Optimistic local reorder
+    const { projects } = get()
+    const projectMap = new Map(projects.map((p) => [p.projectId, p]))
+    const reordered = projectIds
+      .map((id) => projectMap.get(id))
+      .filter((p): p is Project => !!p)
+    // Append any not in the list
+    for (const p of projects) {
+      if (!projectIds.includes(p.projectId)) reordered.push(p)
+    }
+    set({ projects: reordered })
+
+    try {
+      const client = getProjectClient()
+      const resp = await client.reorderProjects({ projectIds })
+      set({ projects: resp.projects })
+    } catch {
+      // Revert on error
+      set({ projects })
     }
   }
 }))

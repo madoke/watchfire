@@ -183,32 +183,26 @@ export function ProjectView() {
 
         {/* Row 3: Action buttons */}
         <div className="flex items-center gap-1.5">
-          {(!isAgentRunning || agentStatus?.mode === 'chat') && (
-            <>
-              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-definition')} title="Generate project definition from codebase">
-                <Sparkles size={12} />
-                Generate
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('generate-tasks')} title="Generate tasks from project definition">
-                <ListTodo size={12} />
-                Plan
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('start-all')} title="Run all ready tasks sequentially">
-                <Play size={12} />
-                Run All
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => handleStartAgent('wildfire')} title="Autonomous loop: generate, plan, and execute">
-                <Flame size={12} />
-                Wildfire
-              </Button>
-            </>
-          )}
-          {isAgentRunning && (
-            <Button size="sm" variant="danger" onClick={handleStopAgent} title="Stop the running agent">
-              <Square size={12} />
-              Stop
-            </Button>
-          )}
+          <Button size="sm" variant={isAgentRunning && agentStatus?.mode === 'generate-definition' ? 'primary' : 'ghost'} onClick={() => handleStartAgent('generate-definition')} title="Generate project definition from codebase">
+            <Sparkles size={12} />
+            Generate
+          </Button>
+          <Button size="sm" variant={isAgentRunning && agentStatus?.mode === 'generate-tasks' ? 'primary' : 'ghost'} onClick={() => handleStartAgent('generate-tasks')} title="Generate tasks from project definition">
+            <ListTodo size={12} />
+            Plan
+          </Button>
+          <Button size="sm" variant={isAgentRunning && agentStatus?.mode === 'start-all' ? 'primary' : 'ghost'} onClick={() => handleStartAgent('start-all')} title="Run all ready tasks sequentially">
+            <Play size={12} />
+            Run All
+          </Button>
+          <Button size="sm" variant={isAgentRunning && agentStatus?.mode === 'wildfire' ? 'primary' : 'ghost'} onClick={() => handleStartAgent('wildfire')} title="Autonomous loop: generate, plan, and execute">
+            <Flame size={12} />
+            Wildfire
+          </Button>
+          <Button size="sm" variant="danger" onClick={handleStopAgent} disabled={!isAgentRunning} title="Stop the running agent">
+            <Square size={12} />
+            Stop
+          </Button>
         </div>
       </div>
 

@@ -58,7 +58,7 @@ func renderStatusBar(m *Model, width int) string {
 		) + "  "
 	}
 	if m.connected {
-		right += lipgloss.NewStyle().Foreground(colorGreen).Render("Connected") + " "
+		right += lipgloss.NewStyle().Foreground(colorGreen).Render("● Connected") + " "
 	} else {
 		right += lipgloss.NewStyle().Foreground(colorYellow).Bold(true).Render("⚠ Disconnected") + " "
 	}
@@ -71,42 +71,148 @@ func renderStatusBar(m *Model, width int) string {
 	return statusBarStyle.Width(width).Render(left + strings.Repeat(" ", gap) + right)
 }
 
+type hint struct {
+	key  string
+	desc string
+}
+
 func getKeyHints(m *Model) string {
 	if m.activeOverlay != overlayNone {
 		return keyHint("Ctrl+s", "save") + "  " + keyHint("Esc", "cancel")
 	}
 
-	base := keyHint("Ctrl+q", "quit") + "  " + keyHint("Ctrl+h", "help") + "  " + keyHint("Tab", "switch")
+	// Task search mode
+	if m.focusedPanel == 0 && m.leftTab == 0 && m.taskList.searchMode {
+		searchDisplay := "/" + m.taskList.searchQuery
+		return keyHint("", searchDisplay) + "  " + keyHint("Esc", "clear") + "  " + keyHint("Enter", "confirm")
+	}
+
+	base := []hint{
+		{"Ctrl+q", "quit"},
+		{"Ctrl+h", "help"},
+		{"Tab", "switch"},
+	}
+
+	var context []hint
 
 	if m.focusedPanel == 0 {
 		switch m.leftTab {
 		case 0: // Tasks
 			agentRunning := m.agentStatus != nil && m.agentStatus.IsRunning
-			hints := base + "  " + keyHint("a", "add") + "  " + keyHint("e", "edit") + "  " +
-				keyHint("s", "start") + "  " + keyHint("w", "wildfire") + "  " +
-				keyHint("!", "start all")
-			if agentRunning {
-				hints += "  " + keyHint("S", "stop")
+			context = []hint{
+				{"/", "search"},
+				{"a", "add"},
+				{"e", "edit"},
+				{"s", "start"},
+				{"w", "wildfire"},
+				{"!", "start all"},
 			}
-			hints += "  " + keyHint("r", "ready") + "  " + keyHint("d", "done") + "  " +
-				keyHint("x", "delete")
-			return hints
+			if agentRunning {
+				context = append(context, hint{"S", "stop"})
+			}
+			context = append(context,
+				hint{"r", "ready"},
+				hint{"d", "done"},
+				hint{"x", "delete"},
+			)
 		case 1: // Definition
-			return base + "  " + keyHint("e", "edit in $EDITOR")
+			context = []hint{{"e", "edit in $EDITOR"}}
 		case 2: // Settings
-			return base + "  " + keyHint("j/k", "navigate") + "  " +
-				keyHint("Enter", "edit") + "  " + keyHint("Space", "toggle")
+			context = []hint{
+				{"j/k", "navigate"},
+				{"Enter", "edit"},
+				{"Space", "toggle"},
+			}
 		}
 	} else {
 		switch m.rightTab {
 		case 0: // Chat/Terminal
-			return base + "  " + keyHint("", "(input goes to agent)")
+			context = []hint{{"", "(input goes to agent)"}}
 		case 1: // Logs
-			return base + "  " + keyHint("Enter", "view") + "  " + keyHint("Esc", "back")
+			context = []hint{{"Enter", "view"}, {"Esc", "back"}}
 		}
 	}
 
-	return base
+	hints := append(base, context...)
+	return renderHintsProgressive(hints, m.width)
+}
+
+// renderHintsProgressive renders hints, progressively truncating for narrow terminals.
+func renderHintsProgressive(hints []hint, width int) string {
+	// Reserve space for right section (~25 chars for "Connected" + update notice)
+	available := width - 30
+
+	// Level 0: Full hints
+	full := renderHintSlice(hints)
+	if lipgloss.Width(full) <= available {
+		return full
+	}
+
+	// Level 1 (<120 cols): Abbreviate key names
+	abbreviated := make([]hint, len(hints))
+	for i, h := range hints {
+		abbreviated[i] = hint{abbreviateKey(h.key), h.desc}
+	}
+	abbr := renderHintSlice(abbreviated)
+	if lipgloss.Width(abbr) <= available {
+		return abbr
+	}
+
+	// Level 2 (<100 cols): Drop descriptions, keys only
+	var keysOnly []string
+	for _, h := range abbreviated {
+		if h.key != "" {
+			keysOnly = append(keysOnly, keyStyle.Render(h.key))
+		}
+	}
+	joined := strings.Join(keysOnly, " ")
+	if lipgloss.Width(joined) <= available {
+		return joined
+	}
+
+	// Level 3: Render from left, stop when width exceeded
+	var result string
+	for _, k := range keysOnly {
+		candidate := result
+		if candidate != "" {
+			candidate += " "
+		}
+		candidate += k
+		if lipgloss.Width(candidate) > available {
+			break
+		}
+		result = candidate
+	}
+	return result
+}
+
+func renderHintSlice(hints []hint) string {
+	parts := make([]string, 0, len(hints))
+	for _, h := range hints {
+		parts = append(parts, keyHint(h.key, h.desc))
+	}
+	return strings.Join(parts, "  ")
+}
+
+func abbreviateKey(k string) string {
+	switch k {
+	case "Ctrl+q":
+		return "^q"
+	case "Ctrl+h":
+		return "^h"
+	case "Ctrl+s":
+		return "^s"
+	case "Tab":
+		return "⇥"
+	case "Enter":
+		return "↵"
+	case "Space":
+		return "␣"
+	case "Esc":
+		return "⎋"
+	default:
+		return k
+	}
 }
 
 func keyHint(k, desc string) string {
@@ -128,11 +234,11 @@ func renderErrorBar(msg string, width int) string {
 	return statusBarStyle.
 		Background(colorRed).
 		Width(width).
-		Render(" " + msg)
+		Render(" ✗ " + msg)
 }
 
 func renderSavedBar(width int) string {
 	return statusBarStyle.
 		Width(width).
-		Render(" " + lipgloss.NewStyle().Foreground(colorGreen).Render("Saved"))
+		Render(" " + lipgloss.NewStyle().Foreground(colorGreen).Render("✓ Saved"))
 }

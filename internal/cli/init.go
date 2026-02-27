@@ -84,12 +84,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create project: %w", err)
 	}
 
-	fmt.Printf("\nProject '%s' initialized successfully!\n", pwe.Project.Name)
-	fmt.Printf("  ID: %s\n", pwe.Project.ProjectID)
-	fmt.Printf("  Path: %s\n", cwd)
+	fmt.Println()
+	fmt.Println(styleSuccess.Render(fmt.Sprintf("Project '%s' initialized successfully!", pwe.Project.Name)))
+	fmt.Printf("  %s %s\n", styleLabel.Render(fmt.Sprintf("%-5s", "ID")), styleValue.Render(pwe.Project.ProjectID))
+	fmt.Printf("  %s %s\n", styleLabel.Render(fmt.Sprintf("%-5s", "Path")), styleValue.Render(cwd))
 	fmt.Println("\nNext steps:")
-	fmt.Println("  - Run 'watchfire task add' to create your first task")
-	fmt.Println("  - Run 'watchfire task list' to see all tasks")
+	fmt.Printf("  - Run %s to open the TUI\n", styleCommand.Render("watchfire"))
+	fmt.Printf("  - Run %s to create your first task\n", styleCommand.Render("watchfire task add"))
+	fmt.Printf("  - Run %s to see all tasks\n", styleCommand.Render("watchfire task list"))
 
 	return nil
 }

@@ -67,7 +67,7 @@ export function TaskItem({ task, projectId }: Props) {
         {isAgentOnTask && (
           <span className="w-1.5 h-1.5 rounded-full bg-fire-500 animate-pulse shrink-0" />
         )}
-        <TaskStatusBadge status={task.status} />
+        <TaskStatusBadge status={task.status} success={task.success} />
 
         {/* Action buttons — visible on hover */}
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>

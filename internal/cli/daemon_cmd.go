@@ -88,10 +88,10 @@ func runDaemonStatus(cmd *cobra.Command, args []string) error {
 	uptime := time.Since(info.StartedAt).Truncate(time.Second)
 
 	fmt.Println("Daemon is running.")
-	fmt.Printf("  Host:       %s\n", info.Host)
-	fmt.Printf("  Port:       %d\n", info.Port)
-	fmt.Printf("  PID:        %d\n", info.PID)
-	fmt.Printf("  Uptime:     %s\n", uptime)
+	fmt.Printf("  %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "Host")), styleValue.Render(info.Host))
+	fmt.Printf("  %s %d\n", styleLabel.Render(fmt.Sprintf("%-8s", "Port")), info.Port)
+	fmt.Printf("  %s %d\n", styleLabel.Render(fmt.Sprintf("%-8s", "PID")), info.PID)
+	fmt.Printf("  %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "Uptime")), styleValue.Render(uptime.String()))
 
 	// Show running agents
 	state, err := config.LoadAgentState()

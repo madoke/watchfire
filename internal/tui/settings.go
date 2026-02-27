@@ -160,10 +160,19 @@ func (s *SettingsForm) View() string {
 		return lipgloss.NewStyle().Foreground(colorDim).Render("Loading settings...")
 	}
 
+	// Compute max label width dynamically
+	maxLabelLen := 0
+	for _, f := range s.fields {
+		if l := len(f.Label) + 1; l > maxLabelLen { // +1 for ":"
+			maxLabelLen = l
+		}
+	}
+	labelStyle := settingsLabelStyle.Width(maxLabelLen + 1) // +1 for padding
+
 	var lines []string
 	for i, f := range s.fields {
 		var line string
-		label := settingsLabelStyle.Render(f.Label + ":")
+		label := labelStyle.Render(f.Label + ":")
 
 		if f.Type == fieldToggle {
 			var val string

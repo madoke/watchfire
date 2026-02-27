@@ -170,6 +170,9 @@ func (tf *TaskForm) View() string {
 
 	// Title field
 	label := lipgloss.NewStyle().Bold(true).Render("Title:")
+	if tf.titleInput.Value() == "" && tf.focusIndex != 0 {
+		label += lipgloss.NewStyle().Foreground(colorDim).Render(" (required)")
+	}
 	parts = append(parts, label, tf.titleInput.View(), "")
 
 	// Prompt field

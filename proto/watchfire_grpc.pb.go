@@ -20,12 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ProjectService_ListProjects_FullMethodName  = "/watchfire.ProjectService/ListProjects"
-	ProjectService_GetProject_FullMethodName    = "/watchfire.ProjectService/GetProject"
-	ProjectService_CreateProject_FullMethodName = "/watchfire.ProjectService/CreateProject"
-	ProjectService_UpdateProject_FullMethodName = "/watchfire.ProjectService/UpdateProject"
-	ProjectService_DeleteProject_FullMethodName = "/watchfire.ProjectService/DeleteProject"
-	ProjectService_GetGitInfo_FullMethodName    = "/watchfire.ProjectService/GetGitInfo"
+	ProjectService_ListProjects_FullMethodName    = "/watchfire.ProjectService/ListProjects"
+	ProjectService_GetProject_FullMethodName      = "/watchfire.ProjectService/GetProject"
+	ProjectService_CreateProject_FullMethodName   = "/watchfire.ProjectService/CreateProject"
+	ProjectService_UpdateProject_FullMethodName   = "/watchfire.ProjectService/UpdateProject"
+	ProjectService_DeleteProject_FullMethodName   = "/watchfire.ProjectService/DeleteProject"
+	ProjectService_GetGitInfo_FullMethodName      = "/watchfire.ProjectService/GetGitInfo"
+	ProjectService_ReorderProjects_FullMethodName = "/watchfire.ProjectService/ReorderProjects"
 )
 
 // ProjectServiceClient is the client API for ProjectService service.
@@ -40,6 +41,7 @@ type ProjectServiceClient interface {
 	UpdateProject(ctx context.Context, in *UpdateProjectRequest, opts ...grpc.CallOption) (*Project, error)
 	DeleteProject(ctx context.Context, in *ProjectId, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetGitInfo(ctx context.Context, in *ProjectId, opts ...grpc.CallOption) (*GitInfo, error)
+	ReorderProjects(ctx context.Context, in *ReorderProjectsRequest, opts ...grpc.CallOption) (*ProjectList, error)
 }
 
 type projectServiceClient struct {
@@ -110,6 +112,16 @@ func (c *projectServiceClient) GetGitInfo(ctx context.Context, in *ProjectId, op
 	return out, nil
 }
 
+func (c *projectServiceClient) ReorderProjects(ctx context.Context, in *ReorderProjectsRequest, opts ...grpc.CallOption) (*ProjectList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProjectList)
+	err := c.cc.Invoke(ctx, ProjectService_ReorderProjects_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProjectServiceServer is the server API for ProjectService service.
 // All implementations must embed UnimplementedProjectServiceServer
 // for forward compatibility.
@@ -122,6 +134,7 @@ type ProjectServiceServer interface {
 	UpdateProject(context.Context, *UpdateProjectRequest) (*Project, error)
 	DeleteProject(context.Context, *ProjectId) (*emptypb.Empty, error)
 	GetGitInfo(context.Context, *ProjectId) (*GitInfo, error)
+	ReorderProjects(context.Context, *ReorderProjectsRequest) (*ProjectList, error)
 	mustEmbedUnimplementedProjectServiceServer()
 }
 
@@ -149,6 +162,9 @@ func (UnimplementedProjectServiceServer) DeleteProject(context.Context, *Project
 }
 func (UnimplementedProjectServiceServer) GetGitInfo(context.Context, *ProjectId) (*GitInfo, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetGitInfo not implemented")
+}
+func (UnimplementedProjectServiceServer) ReorderProjects(context.Context, *ReorderProjectsRequest) (*ProjectList, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReorderProjects not implemented")
 }
 func (UnimplementedProjectServiceServer) mustEmbedUnimplementedProjectServiceServer() {}
 func (UnimplementedProjectServiceServer) testEmbeddedByValue()                        {}
@@ -279,6 +295,24 @@ func _ProjectService_GetGitInfo_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProjectService_ReorderProjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReorderProjectsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProjectServiceServer).ReorderProjects(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProjectService_ReorderProjects_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProjectServiceServer).ReorderProjects(ctx, req.(*ReorderProjectsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProjectService_ServiceDesc is the grpc.ServiceDesc for ProjectService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -309,6 +343,10 @@ var ProjectService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGitInfo",
 			Handler:    _ProjectService_GetGitInfo_Handler,
+		},
+		{
+			MethodName: "ReorderProjects",
+			Handler:    _ProjectService_ReorderProjects_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -13,17 +13,38 @@ export function DefinitionTab({ projectId, project }: Props) {
   const [saved, setSaved] = useState(true)
   const { toast } = useToast()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dirtyRef = useRef(false)
 
   useEffect(() => {
     setValue(project.definition || '')
     setSaved(true)
   }, [project.definition, projectId])
 
+  // Poll for external changes every 3s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (dirtyRef.current) return
+      try {
+        const client = getProjectClient()
+        const proj = await client.getProject({ projectId })
+        const remote = proj.definition || ''
+        setValue((current) => {
+          if (!dirtyRef.current && current !== remote) return remote
+          return current
+        })
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [projectId])
+
   const save = useCallback(async (text: string) => {
     try {
       const client = getProjectClient()
       await client.updateProject({ projectId, definition: text })
       setSaved(true)
+      dirtyRef.current = false
     } catch (err) {
       toast('Failed to save definition', 'error')
     }
@@ -32,6 +53,7 @@ export function DefinitionTab({ projectId, project }: Props) {
   const handleChange = (text: string) => {
     setValue(text)
     setSaved(false)
+    dirtyRef.current = true
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => save(text), 1000)
   }

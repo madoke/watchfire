@@ -76,6 +76,11 @@ message UpdateProjectRequest {
   optional string secrets_instructions = 11;
 }
 
+message ReorderProjectsRequest {
+  RequestMeta meta = 1;
+  repeated string project_ids = 2;            // Project IDs in new order
+}
+
 message GitInfo {
   string current_branch = 1;
   string remote_url = 2;
@@ -367,6 +372,7 @@ service ProjectService {
   rpc UpdateProject(UpdateProjectRequest) returns (Project);
   rpc DeleteProject(ProjectId) returns (google.protobuf.Empty);
   rpc GetGitInfo(ProjectId) returns (GitInfo);
+  rpc ReorderProjects(ReorderProjectsRequest) returns (ProjectList);
 }
 
 // TaskService handles task CRUD and bulk operations

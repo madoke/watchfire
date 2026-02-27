@@ -120,6 +120,18 @@ func (s *projectService) DeleteProject(_ context.Context, req *pb.ProjectId) (*e
 	return &emptypb.Empty{}, nil
 }
 
+func (s *projectService) ReorderProjects(_ context.Context, req *pb.ReorderProjectsRequest) (*pb.ProjectList, error) {
+	results, err := s.manager.ReorderProjects(req.ProjectIds)
+	if err != nil {
+		return nil, err
+	}
+	list := &pb.ProjectList{Projects: make([]*pb.Project, 0, len(results))}
+	for _, pwe := range results {
+		list.Projects = append(list.Projects, modelToProtoProject(pwe))
+	}
+	return list, nil
+}
+
 func (s *projectService) GetGitInfo(_ context.Context, req *pb.ProjectId) (*pb.GitInfo, error) {
 	index, err := config.LoadProjectsIndex()
 	if err != nil {

@@ -12,17 +12,22 @@ import (
 )
 
 // Spinner frames for active task animation.
-var spinnerFrames = []string{"●", "○"}
+var spinnerFrames = []string{"●", "◕", "○", "◔"}
 
 // TaskList is the task list component for the left panel.
 type TaskList struct {
-	tasks        []*pb.Task
-	flatItems    []taskItem // Flattened list for cursor navigation
-	cursor       int
-	scrollOffset int
-	height       int
-	agentStatus  *pb.AgentStatus
-	spinnerFrame int
+	tasks         []*pb.Task
+	flatItems     []taskItem // Flattened list for cursor navigation
+	filteredItems []taskItem // Filtered list during search
+	cursor        int
+	scrollOffset  int
+	height        int
+	agentStatus   *pb.AgentStatus
+	spinnerFrame  int
+
+	// Search state
+	searchMode  bool
+	searchQuery string
 }
 
 type taskItem struct {
@@ -61,21 +66,82 @@ func (tl *TaskList) SetHeight(h int) {
 	tl.height = h
 }
 
+// activeItems returns the currently visible item list (filtered or full).
+func (tl *TaskList) activeItems() []taskItem {
+	if tl.searchMode && tl.searchQuery != "" {
+		return tl.filteredItems
+	}
+	return tl.flatItems
+}
+
 // SelectedTask returns the currently selected task, or nil.
 func (tl *TaskList) SelectedTask() *pb.Task {
-	if tl.cursor < 0 || tl.cursor >= len(tl.flatItems) {
+	items := tl.activeItems()
+	if tl.cursor < 0 || tl.cursor >= len(items) {
 		return nil
 	}
-	item := tl.flatItems[tl.cursor]
+	item := items[tl.cursor]
 	if item.isHeader {
 		return nil
 	}
 	return item.task
 }
 
+// StartSearch enters search mode.
+func (tl *TaskList) StartSearch() {
+	tl.searchMode = true
+	tl.searchQuery = ""
+	tl.filteredItems = nil
+}
+
+// StopSearch exits search mode and restores the full list.
+func (tl *TaskList) StopSearch() {
+	tl.searchMode = false
+	tl.searchQuery = ""
+	tl.filteredItems = nil
+	// Keep cursor in bounds of full list
+	if tl.cursor >= len(tl.flatItems) {
+		tl.cursor = len(tl.flatItems) - 1
+	}
+	if tl.cursor < 0 {
+		tl.cursor = 0
+	}
+	tl.skipHeaders(1)
+}
+
+// ConfirmSearch exits search input but keeps the filter active.
+func (tl *TaskList) ConfirmSearch() {
+	tl.searchMode = false
+	// Keep filteredItems and searchQuery so the filter persists until next SetTasks or StopSearch
+}
+
+// UpdateSearch filters flatItems by query (case-insensitive title match).
+func (tl *TaskList) UpdateSearch(query string) {
+	tl.searchQuery = query
+	if query == "" {
+		tl.filteredItems = nil
+		return
+	}
+	lower := strings.ToLower(query)
+	var filtered []taskItem
+	for _, item := range tl.flatItems {
+		if item.isHeader {
+			continue
+		}
+		if strings.Contains(strings.ToLower(item.task.Title), lower) {
+			filtered = append(filtered, item)
+		}
+	}
+	tl.filteredItems = filtered
+	// Reset cursor
+	tl.cursor = 0
+	tl.scrollOffset = 0
+}
+
 // MoveUp moves the cursor up, skipping headers.
 func (tl *TaskList) MoveUp() {
-	if len(tl.flatItems) == 0 {
+	items := tl.activeItems()
+	if len(items) == 0 {
 		return
 	}
 	tl.cursor--
@@ -88,31 +154,32 @@ func (tl *TaskList) MoveUp() {
 
 // MoveDown moves the cursor down, skipping headers.
 func (tl *TaskList) MoveDown() {
-	if len(tl.flatItems) == 0 {
+	items := tl.activeItems()
+	if len(items) == 0 {
 		return
 	}
 	tl.cursor++
-	if tl.cursor >= len(tl.flatItems) {
-		tl.cursor = len(tl.flatItems) - 1
+	if tl.cursor >= len(items) {
+		tl.cursor = len(items) - 1
 	}
 	tl.skipHeaders(1)
 	tl.ensureVisible()
 }
 
 func (tl *TaskList) skipHeaders(direction int) {
-	for tl.cursor >= 0 && tl.cursor < len(tl.flatItems) && tl.flatItems[tl.cursor].isHeader {
+	items := tl.activeItems()
+	for tl.cursor >= 0 && tl.cursor < len(items) && items[tl.cursor].isHeader {
 		tl.cursor += direction
 	}
 	if tl.cursor < 0 {
 		tl.cursor = 0
-		// Find first non-header
-		for tl.cursor < len(tl.flatItems) && tl.flatItems[tl.cursor].isHeader {
+		for tl.cursor < len(items) && items[tl.cursor].isHeader {
 			tl.cursor++
 		}
 	}
-	if tl.cursor >= len(tl.flatItems) {
-		tl.cursor = len(tl.flatItems) - 1
-		for tl.cursor >= 0 && tl.flatItems[tl.cursor].isHeader {
+	if tl.cursor >= len(items) {
+		tl.cursor = len(items) - 1
+		for tl.cursor >= 0 && items[tl.cursor].isHeader {
 			tl.cursor--
 		}
 	}
@@ -179,18 +246,22 @@ func (tl *TaskList) rebuild() {
 
 // View renders the task list.
 func (tl *TaskList) View(width int) string {
-	if len(tl.flatItems) == 0 {
+	items := tl.activeItems()
+	if len(items) == 0 {
+		if tl.searchMode || tl.searchQuery != "" {
+			return lipgloss.NewStyle().Foreground(colorDim).Render("No matching tasks.")
+		}
 		return lipgloss.NewStyle().Foreground(colorDim).Render("No tasks. Press 'a' to add one.")
 	}
 
 	var lines []string
 	end := tl.scrollOffset + tl.height
-	if end > len(tl.flatItems) {
-		end = len(tl.flatItems)
+	if end > len(items) {
+		end = len(items)
 	}
 
 	for i := tl.scrollOffset; i < end; i++ {
-		item := tl.flatItems[i]
+		item := items[i]
 
 		if item.isHeader {
 			line := sectionHeaderStyle.Render(item.headerStr)
@@ -203,7 +274,8 @@ func (tl *TaskList) View(width int) string {
 
 		t := item.task
 		badge := tl.taskBadge(t)
-		title := fmt.Sprintf("%s #%04d %s", badge, t.TaskNumber, t.Title)
+		numStr := lipgloss.NewStyle().Foreground(colorDim).Render(fmt.Sprintf("#%04d", t.TaskNumber))
+		title := fmt.Sprintf("%s %s %s", badge, numStr, t.Title)
 
 		// Truncate to fit panel width (2 for indent prefix)
 		maxWidth := width - 2
@@ -242,7 +314,7 @@ func (tl *TaskList) View(width int) string {
 	if tl.scrollOffset > 0 {
 		lines = append([]string{lipgloss.NewStyle().Foreground(colorDim).Render("  ▲ more")}, lines...)
 	}
-	if end < len(tl.flatItems) {
+	if end < len(items) {
 		lines = append(lines, lipgloss.NewStyle().Foreground(colorDim).Render("  ▼ more"))
 	}
 

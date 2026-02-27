@@ -19,9 +19,9 @@ var versionCmd = &cobra.Command{
 			styleVersion.Render(buildinfo.Version),
 			styleHint.Render("("+buildinfo.Codename+")"),
 		)
-		fmt.Printf("    %s  %s\n", styleLabel.Render("Commit"), styleValue.Render(buildinfo.CommitHash))
-		fmt.Printf("    %s   %s\n", styleLabel.Render("Built"), styleValue.Render(buildinfo.BuildDate))
-		fmt.Printf("    %s %s\n", styleLabel.Render("OS/Arch"), styleValue.Render(runtime.GOOS+"/"+runtime.GOARCH))
-		fmt.Printf("    %s      %s\n", styleLabel.Render("Go"), styleValue.Render(runtime.Version()))
+		fmt.Printf("    %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "Commit")), styleValue.Render(buildinfo.CommitHash))
+		fmt.Printf("    %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "Built")), styleValue.Render(buildinfo.BuildDate))
+		fmt.Printf("    %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "OS/Arch")), styleValue.Render(runtime.GOOS+"/"+runtime.GOARCH))
+		fmt.Printf("    %s %s\n", styleLabel.Render(fmt.Sprintf("%-8s", "Go")), styleValue.Render(runtime.Version()))
 	},
 }

@@ -121,9 +121,9 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Print groups
-	printTaskGroup("Draft", groups[models.TaskStatusDraft])
-	printTaskGroup("Ready", groups[models.TaskStatusReady])
-	printTaskGroup("Done", groups[models.TaskStatusDone])
+	printTaskGroup(badgeDraft.Render("Draft"), groups[models.TaskStatusDraft])
+	printTaskGroup(badgeReady.Render("Ready"), groups[models.TaskStatusReady])
+	printTaskGroup(badgeDone.Render("Done"), groups[models.TaskStatusDone])
 
 	return nil
 }
@@ -158,6 +158,9 @@ func runTaskAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	fmt.Println(styleBrand.Render("Creating new task"))
+	fmt.Println()
+
 	reader := bufio.NewReader(os.Stdin)
 
 	// Prompt for title
@@ -169,7 +172,7 @@ func runTaskAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prompt for prompt
-	fmt.Print("Prompt (task description): ")
+	fmt.Print("Prompt (optional): ")
 	prompt, _ := reader.ReadString('\n')
 	prompt = strings.TrimSpace(prompt)
 
@@ -179,7 +182,7 @@ func runTaskAdd(cmd *cobra.Command, args []string) error {
 	criteria = strings.TrimSpace(criteria)
 
 	// Prompt for status
-	fmt.Print("Status [draft/ready] (default: draft): ")
+	fmt.Print("Status [draft/ready] (draft): ")
 	statusStr, _ := reader.ReadString('\n')
 	statusStr = strings.TrimSpace(strings.ToLower(statusStr))
 	if statusStr == "" {
@@ -200,7 +203,8 @@ func runTaskAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("\nTask #%04d created successfully!\n", t.TaskNumber)
+	fmt.Println()
+	fmt.Println(styleSuccess.Render(fmt.Sprintf("Task #%04d created successfully!", t.TaskNumber)))
 	return nil
 }
 
@@ -220,6 +224,9 @@ func runTaskEdit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println(styleBrand.Render(fmt.Sprintf("Editing task #%04d", taskNum)))
+	fmt.Println()
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -267,7 +274,7 @@ func runTaskEdit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Task #%04d updated.\n", taskNum)
+	fmt.Println(styleSuccess.Render(fmt.Sprintf("Task #%04d updated.", taskNum)))
 	return nil
 }
 
@@ -336,7 +343,8 @@ func printTaskGroup(name string, tasks []*models.Task) {
 				status = " ✗"
 			}
 		}
-		fmt.Printf("  #%04d  %s%s\n", t.TaskNumber, t.Title, status)
+		num := styleHint.Render(fmt.Sprintf("#%04d", t.TaskNumber))
+		fmt.Printf("  %s  %s%s\n", num, t.Title, status)
 	}
 }
 

@@ -48,6 +48,9 @@ const profileTemplate = `(version 1)
 (allow file-write* (subpath "%s/Library/Caches/npm"))
 (allow file-write* (subpath "%s/Library/Caches/yarn"))
 
+; CLI TOOL CONFIG (Vercel, Firebase, gcloud, etc.)
+(allow file-write* (subpath "%s/Library/Application Support"))
+
 ; DEV TOOL CACHES
 (allow file-write* (subpath "%s/.cargo"))
 (allow file-write* (subpath "%s/go"))
@@ -83,6 +86,8 @@ func GenerateProfile(homeDir, projectDir string, trace bool) string {
 		projectDir, homeDir, homeDir, homeDir,
 		// PACKAGE MANAGER CACHES (7 args: homeDir)
 		homeDir, homeDir, homeDir, homeDir, homeDir, homeDir, homeDir,
+		// CLI TOOL CONFIG (1 arg: homeDir)
+		homeDir,
 		// DEV TOOL CACHES (3 args: homeDir)
 		homeDir, homeDir, homeDir,
 		// PROTECTED - .git/hooks (1 arg: projectDir)

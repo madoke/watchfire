@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { useAgentStore } from '../stores/agent-store'
@@ -15,6 +15,9 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
   const fitRef = useRef<FitAddon | null>(null)
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  const [reconnectKey, setReconnectKey] = useState(0)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const subscribeRawOutput = useAgentStore((s) => s.subscribeRawOutput)
   const sendInput = useAgentStore((s) => s.sendInput)
@@ -83,6 +86,7 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
     return () => {
       abortRef.current?.abort()
       abortRef.current = null
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       observer.disconnect()
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current)
       term.dispose()
@@ -100,6 +104,8 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
       return
     }
 
+    const isReconnect = reconnectKey > 0
+
     // Send resize immediately so daemon knows our dimensions
     const fit = fitRef.current
     if (fit) {
@@ -110,7 +116,10 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
       }
     }
 
-    term.clear()
+    // Only clear on initial subscribe, not reconnects
+    if (!isReconnect) {
+      term.clear()
+    }
 
     const abort = subscribeRawOutput(
       projectId,
@@ -119,6 +128,11 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
       },
       () => {
         term.write('\r\n\x1b[90m[Agent stopped]\x1b[0m\r\n')
+        // Schedule a reconnect attempt for wildfire phase transitions
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = setTimeout(() => {
+          setReconnectKey((k) => k + 1)
+        }, 2000)
       }
     )
     abortRef.current = abort
@@ -127,7 +141,7 @@ export function useAgentTerminal({ projectId, containerRef, active = false }: Us
       abort.abort()
       abortRef.current = null
     }
-  }, [projectId, active])
+  }, [projectId, active, reconnectKey])
 
   /** Get current terminal dimensions (for passing to startAgent) */
   const getDimensions = useCallback(() => {

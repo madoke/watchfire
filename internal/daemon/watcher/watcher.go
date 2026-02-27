@@ -129,7 +129,13 @@ func (w *Watcher) WatchProject(projectID, projectPath string) error {
 		log.Printf("Warning: failed to watch tasks dir: %v", err)
 	}
 
-	log.Printf("[watcher] Watching project %s: %s (tasks: %s)", projectID, watchfireDir, tasksDir)
+	// Watch secrets directory
+	secretsDir := config.ProjectSecretsDir(projectPath)
+	if err := w.fsWatcher.Add(secretsDir); err != nil {
+		log.Printf("Warning: failed to watch secrets dir: %v", err)
+	}
+
+	log.Printf("[watcher] Watching project %s: %s (tasks: %s, secrets: %s)", projectID, watchfireDir, tasksDir, secretsDir)
 	return nil
 }
 
@@ -148,6 +154,7 @@ func (w *Watcher) UnwatchProject(projectID string) {
 	// Remove watches (ignore errors)
 	_ = w.fsWatcher.Remove(config.ProjectDir(projectPath))
 	_ = w.fsWatcher.Remove(config.ProjectTasksDir(projectPath))
+	_ = w.fsWatcher.Remove(config.ProjectSecretsDir(projectPath))
 }
 
 // processEvents processes file system events.
@@ -266,6 +273,17 @@ func (w *Watcher) processFileChange(path string, op fsnotify.Op) {
 		if dir == projectDir && filename == TasksDoneFile {
 			w.eventsChan <- Event{
 				Type:      EventTasksDone,
+				ProjectID: projectID,
+				Path:      path,
+			}
+			return
+		}
+
+		// Check for secrets directory changes → treat as project changed
+		secretsDir := config.ProjectSecretsDir(projectPath)
+		if dir == secretsDir {
+			w.eventsChan <- Event{
+				Type:      EventProjectChanged,
 				ProjectID: projectID,
 				Path:      path,
 			}

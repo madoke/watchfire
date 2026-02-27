@@ -82,7 +82,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   stopAgent: async (projectId) => {
     const client = getAgentClient()
-    await client.stopAgent({ projectId })
+    try {
+      await client.stopAgent({ projectId })
+    } catch {
+      // Agent may already be stopped — ignore errors
+    }
     set((s) => {
       const { [projectId]: _, ...rest } = s.statuses
       return { statuses: rest }

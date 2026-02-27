@@ -2,7 +2,7 @@
 
 ## [0.1.0] Ember — Initial Release
 
-Watchfire orchestrates coding agent sessions (starting with Claude Code) based on project specs and tasks. Define what you want built, break it into tasks, and let agents work through them autonomously — with full visibility into what's happening.
+Watchfire orchestrates coding agent sessions (starting with Claude Code) based on project specs and tasks. Define what you want built, break it into tasks (or have agents do it), and let agents work through them autonomously — with full visibility into what's happening. Or just turn on wildfire mdoe and let you agents do it all for you.
 
 ### Daemon (`watchfired`)
 

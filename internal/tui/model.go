@@ -73,6 +73,9 @@ type Model struct {
 
 	// Update notification
 	updateVersion string
+
+	// Reconnection state
+	reconnectAttempts int
 }
 
 // NewModel creates the initial TUI model.
@@ -96,7 +99,7 @@ func NewModel(projectID string, program *programRef) Model {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		connectDaemonCmd(),
-		tea.EnableMouseAllMotion,
+		tea.EnableMouseCellMotion,
 	)
 }
 
@@ -149,6 +152,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DaemonConnectedMsg:
 		m.conn = msg.Conn
 		m.connected = true
+		m.reconnectAttempts = 0
+		// Re-create stream context for subscriptions
+		m.streamCancel()
+		m.streamCtx, m.streamCancel = context.WithCancel(context.Background())
 		cmds = append(cmds,
 			loadProjectCmd(m.conn, m.projectID),
 			loadTasksCmd(m.conn, m.projectID),
@@ -162,7 +169,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case DaemonDisconnectedMsg:
-		return m, m.doQuit()
+		m.connected = false
+		m.subscribed = false
+		m.agentPolling = false
+		m.spinnerRunning = false
+		m.agentStatus = nil
+		m.reconnectAttempts++
+		if m.conn != nil {
+			_ = m.conn.Close()
+			m.conn = nil
+		}
+		return m, reconnectTick()
 
 	case ReconnectMsg:
 		if !m.connected {
@@ -310,6 +327,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ── Error handling ─────────────────────────────────────────────
 	case ErrorMsg:
+		// If disconnected, suppress error display and keep retrying
+		if !m.connected && m.reconnectAttempts > 0 {
+			m.reconnectAttempts++
+			return m, reconnectTick()
+		}
 		m.err = msg.Err
 		cmds = append(cmds, clearErrorAfter(5*time.Second))
 		return m, tea.Batch(cmds...)
@@ -352,6 +374,18 @@ type resizeTickMsg struct{}
 
 // handleKey processes key events.
 func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
+	// Disconnected state: only allow quit and retry
+	if !m.connected && m.reconnectAttempts > 0 {
+		switch msg.String() {
+		case "q", "ctrl+q", "ctrl+c":
+			return m.doQuit()
+		case "r":
+			m.reconnectAttempts = 1
+			return connectDaemonCmd()
+		}
+		return nil
+	}
+
 	// Confirm mode captures everything
 	if m.confirmMode != confirmNone {
 		return m.handleConfirmKey(msg)
@@ -441,7 +475,41 @@ func (m *Model) handleRightPanelKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) handleTaskListKey(msg tea.KeyMsg) tea.Cmd {
+	// Search mode: capture input
+	if m.taskList.searchMode {
+		switch msg.Type {
+		case tea.KeyEscape:
+			m.taskList.StopSearch()
+			return nil
+		case tea.KeyEnter:
+			m.taskList.ConfirmSearch()
+			return nil
+		case tea.KeyBackspace:
+			q := m.taskList.searchQuery
+			if len(q) > 0 {
+				m.taskList.UpdateSearch(q[:len(q)-1])
+			}
+			return nil
+		case tea.KeyRunes:
+			m.taskList.UpdateSearch(m.taskList.searchQuery + string(msg.Runes))
+			return nil
+		case tea.KeyUp:
+			m.taskList.MoveUp()
+			return nil
+		case tea.KeyDown:
+			m.taskList.MoveDown()
+			return nil
+		}
+		return nil
+	}
+
 	agentRunning := m.agentStatus != nil && m.agentStatus.IsRunning
+
+	// "/" to start search
+	if msg.Type == tea.KeyRunes && string(msg.Runes) == "/" {
+		m.taskList.StartSearch()
+		return nil
+	}
 
 	switch {
 	case key.Matches(msg, taskListKeys.Up):
@@ -873,9 +941,16 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 					m.taskList.MoveUp()
 				case 1:
 					m.definitionView.ScrollUp()
+				case 2:
+					m.settingsForm.MoveUp()
 				}
 			} else {
-				m.terminal.ScrollUp(3)
+				switch m.rightTab {
+				case 0:
+					m.terminal.ScrollUp(3)
+				case 1:
+					m.logViewer.MoveUp()
+				}
 			}
 		case tea.MouseButtonWheelDown:
 			if m.focusedPanel == 0 {
@@ -884,9 +959,16 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 					m.taskList.MoveDown()
 				case 1:
 					m.definitionView.ScrollDown()
+				case 2:
+					m.settingsForm.MoveDown()
 				}
 			} else {
-				m.terminal.ScrollDown(3)
+				switch m.rightTab {
+				case 0:
+					m.terminal.ScrollDown(3)
+				case 1:
+					m.logViewer.MoveDown()
+				}
 			}
 		}
 	}
@@ -998,12 +1080,20 @@ func (m Model) View() string {
 
 	// Not connected yet
 	if !m.connected {
+		msg := "Connecting to daemon..."
+		if m.reconnectAttempts > 0 {
+			if m.reconnectAttempts >= 10 {
+				msg = fmt.Sprintf("Daemon unreachable (%d attempts).\nPress q to quit or r to retry.", m.reconnectAttempts)
+			} else {
+				msg = fmt.Sprintf("Reconnecting... (attempt %d)", m.reconnectAttempts)
+			}
+		}
 		return lipgloss.NewStyle().
 			Width(m.width).
 			Height(m.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Foreground(colorDim).
-			Render("Connecting to daemon...")
+			Foreground(colorYellow).
+			Render(msg)
 	}
 
 	// Build layout

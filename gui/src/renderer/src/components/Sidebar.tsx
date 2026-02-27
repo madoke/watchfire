@@ -1,4 +1,7 @@
 import { LayoutDashboard, Plus, Settings, PanelLeftClose, PanelLeft, Wifi, WifiOff } from 'lucide-react'
+import { DndContext, closestCenter, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../stores/app-store'
 import { useProjectsStore } from '../stores/projects-store'
 import { StatusDot } from './StatusDot'
@@ -16,6 +19,26 @@ export function Sidebar() {
 
   const projects = useProjectsStore((s) => s.projects)
   const agentStatuses = useProjectsStore((s) => s.agentStatuses)
+  const reorderProjects = useProjectsStore((s) => s.reorderProjects)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const ids = projects.map((p) => p.projectId)
+    const oldIndex = ids.indexOf(String(active.id))
+    const newIndex = ids.indexOf(String(over.id))
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newIds = [...ids]
+    newIds.splice(oldIndex, 1)
+    newIds.splice(newIndex, 0, String(active.id))
+    reorderProjects(newIds)
+  }
 
   return (
     <aside
@@ -61,20 +84,25 @@ export function Sidebar() {
           </div>
         )}
 
-        {projects.map((p) => {
-          const agentStatus = agentStatuses[p.projectId]
-          const isRunning = agentStatus?.isRunning
-          return (
-            <SidebarItem
-              key={p.projectId}
-              icon={<StatusDot color={p.color || '#e07040'} pulsing={isRunning} size="sm" />}
-              label={p.name}
-              active={view === 'project' && selectedProjectId === p.projectId}
-              collapsed={collapsed}
-              onClick={() => selectProject(p.projectId)}
-            />
-          )
-        })}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={projects.map((p) => p.projectId)} strategy={verticalListSortingStrategy}>
+            {projects.map((p) => {
+              const agentStatus = agentStatuses[p.projectId]
+              const isRunning = agentStatus?.isRunning
+              return (
+                <SortableProjectItem
+                  key={p.projectId}
+                  id={p.projectId}
+                  icon={<StatusDot color={p.color || '#e07040'} pulsing={isRunning} size="sm" />}
+                  label={p.name}
+                  active={view === 'project' && selectedProjectId === p.projectId}
+                  collapsed={collapsed}
+                  onClick={() => selectProject(p.projectId)}
+                />
+              )
+            })}
+          </SortableContext>
+        </DndContext>
 
         <SidebarItem
           icon={<Plus size={16} />}
@@ -147,5 +175,31 @@ function SidebarItem({ icon, label, active, collapsed, onClick }: SidebarItemPro
       <span className="shrink-0 flex items-center justify-center w-4 h-4">{icon}</span>
       {!collapsed && <span className="truncate text-sm">{label}</span>}
     </button>
+  )
+}
+
+interface SortableProjectItemProps extends SidebarItemProps {
+  id: string
+}
+
+function SortableProjectItem({ id, icon, label, active, collapsed, onClick }: SortableProjectItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <SidebarItem
+        icon={icon}
+        label={label}
+        active={active}
+        collapsed={collapsed}
+        onClick={onClick}
+      />
+    </div>
   )
 }

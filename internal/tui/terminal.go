@@ -128,7 +128,9 @@ func (t *Terminal) View() string {
 			msg := lipgloss.NewStyle().
 				Foreground(colorDim).
 				Width(t.width).
+				Height(t.height).
 				Align(lipgloss.Center).
+				AlignVertical(lipgloss.Center).
 				Render("No agent running. Press 's' on a task to start.")
 			parts = append(parts, msg)
 			return strings.Join(parts, "\n")

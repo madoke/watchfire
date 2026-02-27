@@ -537,6 +537,19 @@ func (m *Manager) writeSessionLog(ag *RunningAgent, proc *Process) {
 		return
 	}
 
+	// Strip ANSI escape sequences for clean text logs
+	cleaned := make([]string, 0, len(scrollback))
+	for _, line := range scrollback {
+		stripped := stripAnsi(line)
+		if stripped != "" {
+			cleaned = append(cleaned, stripped)
+		}
+	}
+	if len(cleaned) == 0 {
+		return
+	}
+	scrollback = cleaned
+
 	status := "completed"
 	if proc.ExitErr() != nil {
 		status = "interrupted"

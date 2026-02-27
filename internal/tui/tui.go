@@ -56,7 +56,7 @@ func Run(projectPath string) error {
 	p := tea.NewProgram(
 		model,
 		tea.WithAltScreen(),
-		tea.WithMouseAllMotion(),
+		tea.WithMouseCellMotion(),
 	)
 
 	// Store program reference for goroutine sends

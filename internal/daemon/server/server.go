@@ -351,6 +351,8 @@ func (s *Server) Stop() {
 func (s *Server) processWatcherEvents() {
 	for event := range s.watcher.Events() {
 		switch event.Type {
+		case watcher.EventProjectChanged:
+			log.Printf("[project-watch] Project changed: %s (path: %s)", event.ProjectID, event.Path)
 		case watcher.EventTaskChanged, watcher.EventTaskCreated:
 			// Handle both: atomic writes (write tmp → rename) produce Create events
 			// even for existing files, so we can't rely on the distinction.

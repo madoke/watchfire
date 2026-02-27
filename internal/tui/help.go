@@ -24,6 +24,7 @@ var helpSections = []helpSection{
 			{"Ctrl+h", "Toggle help"},
 			{"Tab", "Switch panel focus"},
 			{"1/2/3", "Switch left panel tab"},
+			{"Shift+drag", "Select text (copy)"},
 		},
 	},
 	{
@@ -39,6 +40,7 @@ var helpSections = []helpSection{
 			{"r", "Set task to Ready"},
 			{"t", "Set task to Draft"},
 			{"d", "Mark task Done"},
+			{"/", "Search tasks"},
 			{"x", "Delete task (soft)"},
 		},
 	},
@@ -94,6 +96,17 @@ func renderHelp(width int) string {
 		maxWidth = 30
 	}
 
+	// Compute max key width across all sections
+	maxKeyWidth := 0
+	for _, sec := range helpSections {
+		for _, k := range sec.keys {
+			if len(k.key) > maxKeyWidth {
+				maxKeyWidth = len(k.key)
+			}
+		}
+	}
+	keyColWidth := maxKeyWidth + 2
+
 	title := overlayTitleStyle.Render("Keyboard Shortcuts")
 	sections := make([]string, 0, len(helpSections)*4+3)
 	sections = append(sections, title)
@@ -104,7 +117,7 @@ func renderHelp(width int) string {
 
 		for _, k := range sec.keys {
 			keyCol := lipgloss.NewStyle().
-				Width(14).
+				Width(keyColWidth).
 				Foreground(colorWhite).
 				Bold(true).
 				Render(k.key)
@@ -115,7 +128,7 @@ func renderHelp(width int) string {
 		}
 	}
 
-	sections = append(sections, "", lipgloss.NewStyle().Foreground(colorDim).Render("Press Esc or Ctrl+h to close"))
+	sections = append(sections, "", lipgloss.NewStyle().Foreground(colorDim).Render("Press Esc to close"))
 
 	content := strings.Join(sections, "\n")
 	return overlayStyle.Width(maxWidth).Render(content)

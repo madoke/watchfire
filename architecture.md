@@ -104,6 +104,8 @@ The daemon is the backend brain of Watchfire. It manages multiple projects simul
 | **Agent permissions** | Agent runs in "yolo mode" — full permissions within sandbox |
 | **Claude Code flag** | `--dangerously-skip-permissions` |
 | **Security model** | Agent has free reign inside sandbox; sandbox limits blast radius |
+| **Write-allowed paths** | Project dir, `~/.claude`, temp dirs, package manager caches (`~/.npm`, `~/.yarn`, `~/.pnpm-store`, `~/.cache`, `~/Library/Caches/*`), dev tool caches (`~/.cargo`, `~/go`, `~/.rustup`), CLI tool config (`~/Library/Application Support`) |
+| **Denied paths (read+write)** | `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`, `~/Desktop`, `~/Documents`, `~/Downloads`, `~/Music`, `~/Movies`, `~/Pictures`, `.env` files, `.git/hooks` |
 
 ### PTY & Terminal Emulation
 

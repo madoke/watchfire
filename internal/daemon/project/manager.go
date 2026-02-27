@@ -296,6 +296,49 @@ func (m *Manager) getProjectByPath(projectPath string) (ProjectWithEntry, error)
 	}, nil
 }
 
+// ReorderProjects reorders projects by updating their positions in the index.
+func (m *Manager) ReorderProjects(projectIDs []string) ([]ProjectWithEntry, error) {
+	index, err := config.LoadProjectsIndex()
+	if err != nil {
+		return nil, err
+	}
+
+	// Build a map of project ID → entry index for quick lookup
+	entryMap := make(map[string]int, len(index.Projects))
+	for i, entry := range index.Projects {
+		entryMap[entry.ProjectID] = i
+	}
+
+	// Reorder: build new slice in the requested order
+	reordered := make([]models.ProjectEntry, 0, len(index.Projects))
+	seen := make(map[string]bool, len(projectIDs))
+	for pos, id := range projectIDs {
+		idx, ok := entryMap[id]
+		if !ok {
+			continue
+		}
+		entry := index.Projects[idx]
+		entry.Position = pos + 1
+		reordered = append(reordered, entry)
+		seen[id] = true
+	}
+
+	// Append any projects not in the request (preserve their relative order)
+	for _, entry := range index.Projects {
+		if !seen[entry.ProjectID] {
+			entry.Position = len(reordered) + 1
+			reordered = append(reordered, entry)
+		}
+	}
+
+	index.Projects = reordered
+	if err := config.SaveProjectsIndex(index); err != nil {
+		return nil, err
+	}
+
+	return m.ListProjects()
+}
+
 // DeleteProject removes a project from the registry.
 // Note: This does NOT delete the .watchfire directory, only unregisters the project.
 func (m *Manager) DeleteProject(projectID string) error {

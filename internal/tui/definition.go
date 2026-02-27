@@ -14,6 +14,7 @@ import (
 type DefinitionView struct {
 	viewport viewport.Model
 	content  string
+	loaded   bool
 	width    int
 	height   int
 }
@@ -29,6 +30,7 @@ func NewDefinitionView() *DefinitionView {
 // SetContent updates the definition text.
 func (d *DefinitionView) SetContent(content string) {
 	d.content = content
+	d.loaded = true
 	d.viewport.SetContent(content)
 }
 
@@ -52,6 +54,11 @@ func (d *DefinitionView) ScrollDown() {
 
 // View renders the definition.
 func (d *DefinitionView) View() string {
+	if !d.loaded && d.content == "" {
+		return lipgloss.NewStyle().
+			Foreground(colorDim).
+			Render("Loading definition...")
+	}
 	if d.content == "" {
 		return lipgloss.NewStyle().
 			Foreground(colorDim).

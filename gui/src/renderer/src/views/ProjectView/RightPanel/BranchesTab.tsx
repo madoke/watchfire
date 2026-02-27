@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { GitMerge, Trash2, Scissors, RefreshCw } from 'lucide-react'
+import { GitBranch, GitMerge, Trash2, Scissors, RefreshCw } from 'lucide-react'
 import { useBranchesStore } from '../../../stores/branches-store'
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/Badge'
@@ -26,6 +26,7 @@ export function BranchesTab({ projectId }: Props) {
   }, [projectId])
 
   const handleMerge = async (name: string) => {
+    if (!window.confirm(`Merge branch "${name}" into main?`)) return
     try {
       await mergeBranch(projectId, name, true)
       toast('Branch merged', 'success')
@@ -35,6 +36,7 @@ export function BranchesTab({ projectId }: Props) {
   }
 
   const handleDelete = async (name: string) => {
+    if (!window.confirm(`Delete branch "${name}"? This cannot be undone.`)) return
     try {
       await deleteBranch(projectId, name)
       toast('Branch deleted', 'success')
@@ -45,7 +47,8 @@ export function BranchesTab({ projectId }: Props) {
 
   if (branches.length === 0 && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-[var(--wf-text-muted)]">
+      <div className="flex flex-col items-center justify-center h-full text-[var(--wf-text-muted)] gap-2">
+        <GitBranch size={32} strokeWidth={1.5} />
         <p className="text-sm">No branches</p>
       </div>
     )

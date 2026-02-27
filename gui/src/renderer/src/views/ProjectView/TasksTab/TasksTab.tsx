@@ -25,7 +25,8 @@ export function TasksTab({ projectId }: Props) {
       )
     : activeTasks
 
-  const done = filtered.filter((t) => t.status === 'done')
+  const failed = filtered.filter((t) => t.status === 'done' && t.success !== true)
+  const done = filtered.filter((t) => t.status === 'done' && t.success === true)
   const ready = filtered.filter((t) => t.status === 'ready')
   const draft = filtered.filter((t) => t.status === 'draft')
 
@@ -65,6 +66,15 @@ export function TasksTab({ projectId }: Props) {
             tasks={draft}
             projectId={projectId}
             color="var(--wf-text-muted)"
+          />
+        )}
+        {failed.length > 0 && (
+          <TaskGroup
+            title="Failed"
+            tasks={failed}
+            projectId={projectId}
+            color="var(--wf-error)"
+            collapsible
           />
         )}
         {done.length > 0 && (

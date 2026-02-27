@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Modal } from '../../../components/ui/Modal'
+import { SlidePanel } from '../../../components/ui/SlidePanel'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { useTasksStore } from '../../../stores/tasks-store'
@@ -69,7 +69,7 @@ export function TaskModal({ open, onClose, projectId, task }: Props) {
   }
 
   return (
-    <Modal
+    <SlidePanel
       open={open}
       onClose={onClose}
       title={isEdit ? `Edit ${formatTaskNumber(task.taskNumber)}` : 'New Task'}
@@ -99,7 +99,7 @@ export function TaskModal({ open, onClose, projectId, task }: Props) {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Detailed instructions for the AI agent..."
-            rows={4}
+            rows={8}
             className="w-full px-3 py-2 rounded-[var(--wf-radius-md)] bg-[var(--wf-bg-primary)] border border-[var(--wf-border)] text-sm font-mono text-[var(--wf-text-primary)] placeholder-[var(--wf-text-muted)] focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/30 transition-colors resize-none"
           />
         </div>
@@ -112,7 +112,7 @@ export function TaskModal({ open, onClose, projectId, task }: Props) {
             value={criteria}
             onChange={(e) => setCriteria(e.target.value)}
             placeholder="How will we know this task is done?"
-            rows={3}
+            rows={6}
             className="w-full px-3 py-2 rounded-[var(--wf-radius-md)] bg-[var(--wf-bg-primary)] border border-[var(--wf-border)] text-sm font-mono text-[var(--wf-text-primary)] placeholder-[var(--wf-text-muted)] focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/30 transition-colors resize-none"
           />
         </div>
@@ -137,6 +137,6 @@ export function TaskModal({ open, onClose, projectId, task }: Props) {
           </div>
         </div>
       </div>
-    </Modal>
+    </SlidePanel>
   )
 }

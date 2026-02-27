@@ -20,7 +20,7 @@ var (
 
 	statusBarStyle = lipgloss.NewStyle().
 			Foreground(colorWhite).
-			Background(lipgloss.AdaptiveColor{Light: "235", Dark: "236"})
+			Background(lipgloss.AdaptiveColor{Light: "254", Dark: "236"})
 
 	focusedBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
@@ -88,13 +88,13 @@ var (
 // Mode header styles (terminal panel).
 var (
 	modeHeaderStyle = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: "237", Dark: "237"}).
+			Background(lipgloss.AdaptiveColor{Light: "254", Dark: "237"}).
 			Foreground(colorGreen).
 			Bold(true).
 			Padding(0, 1)
 
 	modeHeaderWildfireStyle = lipgloss.NewStyle().
-				Background(lipgloss.AdaptiveColor{Light: "237", Dark: "237"}).
+				Background(lipgloss.AdaptiveColor{Light: "254", Dark: "237"}).
 				Foreground(colorOrange).
 				Bold(true).
 				Padding(0, 1)
