@@ -216,7 +216,7 @@ jobs:
             }).then(() => console.log('Universal merge complete'))
               .catch(err => { console.error('Universal merge failed:', err.message); process.exit(1); });
           "
-          # Generate app-update.yml for electron-updater (not created by --publish never)
+          # Generate app-update.yml for electron-updater (--prepackaged skips doPack where this is normally created)
           printf 'provider: github\nowner: watchfire-io\nrepo: watchfire\nreleaseType: release\n' > dist/mac-universal/Watchfire.app/Contents/Resources/app-update.yml
           # Sign the universal app using @electron/osx-sign (handles nested frameworks/helpers properly)
           # and notarize using @electron/notarize, then package into DMG/zip without re-signing
@@ -262,6 +262,11 @@ jobs:
           "
           # Build DMG and zip from the already-signed universal app (skip signing + notarization)
           CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --publish never --prepackaged dist/mac-universal/Watchfire.app -c.mac.notarize=false
+
+          # Verify app-update.yml is present in the final artifacts
+          if [ ! -f dist/mac-universal/Watchfire.app/Contents/Resources/app-update.yml ]; then
+            echo "::warning::app-update.yml missing from universal app bundle — auto-updater will fail"
+          fi
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4

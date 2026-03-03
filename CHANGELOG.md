@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- GUI auto-updater no longer fails with `ENOENT: app-update.yml` — the file was dropped during universal app merge and is now explicitly copied into the final bundle
+- GUI auto-updater no longer fails with `ENOENT: app-update.yml` — the `--prepackaged` electron-builder flag skips generating this file; it is now created explicitly in the build workflow
 
 ## [0.1.1] Ember
 
