@@ -83,7 +83,10 @@ function findDaemonBinary(): string | null {
   const parentBuild = resolve(process.cwd(), '..', 'build', 'watchfired')
   if (existsSync(parentBuild)) return parentBuild
 
-  // 5. /usr/local/bin fallback
+  // 5. /opt/homebrew/bin fallback (Apple Silicon Homebrew)
+  if (existsSync('/opt/homebrew/bin/watchfired')) return '/opt/homebrew/bin/watchfired'
+
+  // 6. /usr/local/bin fallback
   if (existsSync('/usr/local/bin/watchfired')) return '/usr/local/bin/watchfired'
 
   return null

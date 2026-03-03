@@ -4,8 +4,19 @@ import { execSync } from 'child_process'
 import { app, dialog } from 'electron'
 import { stopDaemon } from './daemon'
 
-const CLI_PATH = '/usr/local/bin/watchfire'
-const DAEMON_PATH = '/usr/local/bin/watchfired'
+const HOMEBREW_PATHS = ['/opt/homebrew/bin', '/usr/local/bin']
+const DEFAULT_INSTALL_DIR = '/usr/local/bin'
+const CLI_PATH = join(DEFAULT_INSTALL_DIR, 'watchfire')
+const DAEMON_PATH = join(DEFAULT_INSTALL_DIR, 'watchfired')
+
+/** Find an installed binary in known Homebrew/system paths. */
+function findInstalledPath(binary: string): string | null {
+  for (const dir of HOMEBREW_PATHS) {
+    const p = join(dir, binary)
+    if (existsSync(p)) return p
+  }
+  return null
+}
 
 interface InstallStatus {
   needed: boolean
@@ -14,13 +25,16 @@ interface InstallStatus {
 
 /** Check if the installed CLI binaries need installation or update. */
 export function needsInstall(): InstallStatus {
-  if (!existsSync(CLI_PATH) || !existsSync(DAEMON_PATH)) {
+  const cliPath = findInstalledPath('watchfire')
+  const daemonPath = findInstalledPath('watchfired')
+
+  if (!cliPath || !daemonPath) {
     return { needed: true, reason: 'missing' }
   }
 
   // Check version of installed binary
   try {
-    const output = execSync(`"${CLI_PATH}" version`, { encoding: 'utf-8', timeout: 5000 })
+    const output = execSync(`"${cliPath}" version`, { encoding: 'utf-8', timeout: 5000 })
     const match = output.match(/Watchfire\s+([\d.]+)/)
     if (match) {
       const installedVersion = match[1]
@@ -58,8 +72,9 @@ export async function installCLI(): Promise<boolean> {
     throw new Error('Bundled binaries not found in app resources')
   }
 
-  // Check if existing binaries are Homebrew-managed
-  if (existsSync(CLI_PATH) && isHomebrewInstalled(CLI_PATH)) {
+  // Check if existing binaries are Homebrew-managed (in any known location)
+  const existingCLI = findInstalledPath('watchfire')
+  if (existingCLI && isHomebrewInstalled(existingCLI)) {
     dialog.showMessageBoxSync({
       type: 'info',
       title: 'Homebrew Installation Detected',
