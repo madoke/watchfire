@@ -216,8 +216,8 @@ jobs:
             }).then(() => console.log('Universal merge complete'))
               .catch(err => { console.error('Universal merge failed:', err.message); process.exit(1); });
           "
-          # Copy app-update.yml that @electron/universal drops during merge
-          cp dist/mac-arm64/Watchfire.app/Contents/Resources/app-update.yml dist/mac-universal/Watchfire.app/Contents/Resources/app-update.yml
+          # Generate app-update.yml for electron-updater (not created by --publish never)
+          printf 'provider: github\nowner: watchfire-io\nrepo: watchfire\nreleaseType: release\n' > dist/mac-universal/Watchfire.app/Contents/Resources/app-update.yml
           # Sign the universal app using @electron/osx-sign (handles nested frameworks/helpers properly)
           # and notarize using @electron/notarize, then package into DMG/zip without re-signing
           node -e "
