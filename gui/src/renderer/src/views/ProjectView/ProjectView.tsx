@@ -56,12 +56,19 @@ export function ProjectView() {
     if (projectId) fetchTasks(projectId, true)
   }, [projectId])
 
-  // Poll tasks every 3s while agent is running
+  // Poll tasks regularly (every 3s when agent running, every 5s otherwise)
   useEffect(() => {
-    if (!projectId || !isAgentRunning) return
-    const interval = setInterval(() => fetchTasks(projectId), 3000)
+    if (!projectId) return
+    const interval = setInterval(() => fetchTasks(projectId), isAgentRunning ? 3000 : 5000)
     return () => clearInterval(interval)
   }, [projectId, isAgentRunning])
+
+  // Poll agent status every 5s to detect external changes
+  useEffect(() => {
+    if (!projectId) return
+    const interval = setInterval(() => fetchAgentStatus(projectId), 5000)
+    return () => clearInterval(interval)
+  }, [projectId])
 
   // Fetch git info on mount and poll every 10s
   useEffect(() => {
