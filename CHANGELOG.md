@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] Ember
+
+### Fixed
+
+- GUI auto-updater no longer fails with `ENOENT: app-update.yml` — the file was dropped during universal app merge and is now explicitly copied into the final bundle
+
 ## [0.1.1] Ember
 
 ### Fixed
