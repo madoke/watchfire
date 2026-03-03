@@ -40,14 +40,17 @@ export function SettingsTab({ projectId, project }: Props) {
     setAutoStart(project.autoStartTasks)
   }, [project])
 
+  const fetchProjects = useProjectsStore((s) => s.fetchProjects)
+
   const save = useCallback(async (updates: Record<string, unknown>) => {
     try {
       const client = getProjectClient()
       await client.updateProject({ projectId, ...updates })
+      await fetchProjects()
     } catch (err) {
       toast('Failed to save settings', 'error')
     }
-  }, [projectId])
+  }, [projectId, fetchProjects])
 
   const debouncedSave = (updates: Record<string, unknown>) => {
     if (timerRef.current) clearTimeout(timerRef.current)
