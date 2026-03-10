@@ -1,7 +1,18 @@
 #import <UserNotifications/UserNotifications.h>
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 
-void SendDarwinNotification(const char *title, const char *message, const char *iconPath) {
+void SetDarwinAppIcon(const void *data, int len) {
+    @autoreleasepool {
+        NSData *imgData = [NSData dataWithBytes:data length:len];
+        NSImage *icon = [[NSImage alloc] initWithData:imgData];
+        if (icon) {
+            [NSApp setApplicationIconImage:icon];
+        }
+    }
+}
+
+void SendDarwinNotification(const char *title, const char *message) {
     @autoreleasepool {
         UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
 
@@ -13,21 +24,6 @@ void SendDarwinNotification(const char *title, const char *message, const char *
         content.title = [NSString stringWithUTF8String:title];
         content.body  = [NSString stringWithUTF8String:message];
         content.sound = [UNNotificationSound defaultSound];
-
-        // Attach the icon image so it appears in the notification.
-        if (iconPath) {
-            NSString *path = [NSString stringWithUTF8String:iconPath];
-            NSURL *fileURL = [NSURL fileURLWithPath:path];
-            NSError *attachError = nil;
-            UNNotificationAttachment *attachment =
-                [UNNotificationAttachment attachmentWithIdentifier:@"icon"
-                                                               URL:fileURL
-                                                           options:nil
-                                                             error:&attachError];
-            if (attachment && !attachError) {
-                content.attachments = @[attachment];
-            }
-        }
 
         NSString *identifier = [[NSUUID UUID] UUIDString];
         UNNotificationRequest *request =

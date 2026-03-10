@@ -203,7 +203,7 @@ The daemon sends desktop notifications on agent completion/error via the `intern
 
 | Platform | Backend |
 |----------|---------|
-| **macOS** | Native `UNUserNotificationCenter` via CGo (shows Watchfire icon via attachment) |
+| **macOS** | Native `UNUserNotificationCenter` via CGo (sets `NSApp` icon so notifications show Watchfire logo) |
 | **Linux** | `github.com/gen2brain/beeep` |
 | **Other** | No-op (logs to stderr) |
 
