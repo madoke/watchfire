@@ -49,8 +49,8 @@ func EnsureWorktree(projectPath string, taskNumber int) (string, error) {
 			}
 			cmd = exec.Command("git", "worktree", "add", worktreePath, "-b", branchName)
 			cmd.Dir = projectPath
-			if output, err := cmd.CombinedOutput(); err != nil {
-				return "", fmt.Errorf("failed to create worktree after branch delete: %s: %w", string(output), err)
+			if retryOutput, retryErr := cmd.CombinedOutput(); retryErr != nil {
+				return "", fmt.Errorf("failed to create worktree after branch delete: %s: %w", string(retryOutput), retryErr)
 			}
 		} else {
 			return "", fmt.Errorf("failed to create worktree: %s: %w", string(output), err)
@@ -79,12 +79,12 @@ func MergeWorktree(projectPath string, taskNumber int) (bool, error) {
 	// Log branch positions for debugging
 	mainHead := exec.Command("git", "rev-parse", "--short", targetBranch)
 	mainHead.Dir = projectPath
-	if out, err := mainHead.Output(); err == nil {
+	if out, mainErr := mainHead.Output(); mainErr == nil {
 		log.Printf("[merge] %s HEAD: %s", targetBranch, strings.TrimSpace(string(out)))
 	}
 	branchHead := exec.Command("git", "rev-parse", "--short", branchName)
 	branchHead.Dir = projectPath
-	if out, err := branchHead.Output(); err == nil {
+	if out, branchErr := branchHead.Output(); branchErr == nil {
 		log.Printf("[merge] %s HEAD: %s", branchName, strings.TrimSpace(string(out)))
 	}
 
@@ -97,7 +97,7 @@ func MergeWorktree(projectPath string, taskNumber int) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to check branch diff: %w", err)
 	}
-	if len(strings.TrimSpace(string(diffOutput))) == 0 {
+	if strings.TrimSpace(string(diffOutput)) == "" {
 		log.Printf("[merge] Branch %s has no file differences vs %s — nothing to merge", branchName, targetBranch)
 		return false, nil
 	}

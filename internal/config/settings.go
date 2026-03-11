@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/watchfire-io/watchfire/internal/models"
 	"gopkg.in/yaml.v3"
+
+	"github.com/watchfire-io/watchfire/internal/models"
 )
 
 // LoadSettings loads the global settings from ~/.watchfire/settings.yaml.

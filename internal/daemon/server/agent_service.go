@@ -164,9 +164,9 @@ func (s *agentService) startWildfireMode(req *pb.StartAgentRequest, projectPath 
 	} else {
 		// 2. Check for draft tasks → Refine phase
 		draftStatus := string(models.TaskStatusDraft)
-		draftTasks, err := taskMgr.ListTasks(projectPath, task.ListOptions{Status: &draftStatus})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list draft tasks: %w", err)
+		draftTasks, draftErr := taskMgr.ListTasks(projectPath, task.ListOptions{Status: &draftStatus})
+		if draftErr != nil {
+			return nil, fmt.Errorf("failed to list draft tasks: %w", draftErr)
 		}
 		if len(draftTasks) > 0 {
 			t := draftTasks[0]

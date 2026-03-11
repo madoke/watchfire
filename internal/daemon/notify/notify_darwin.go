@@ -9,7 +9,7 @@ package notify
 extern void SetDarwinAppIcon(const void *data, int len);
 extern void SendDarwinNotification(const char *title, const char *message);
 */
-import "C"
+import "C" //nolint:dupImport // cgo requires separate import block
 
 import (
 	"sync"

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/watchfire-io/watchfire/internal/daemon/task"
@@ -151,4 +152,3 @@ func (s *taskService) EmptyTrash(_ context.Context, req *pb.ProjectId) (*emptypb
 	}
 	return &emptypb.Empty{}, nil
 }
-

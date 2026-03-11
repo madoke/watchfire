@@ -49,8 +49,8 @@ var updateCmd = &cobra.Command{
 		// Stop daemon if running
 		if daemonWasRunning && daemonInfo != nil {
 			fmt.Println("Stopping daemon...")
-			if err := stopDaemonForUpdate(daemonInfo.PID); err != nil {
-				fmt.Printf("Warning: failed to stop daemon: %v\n", err)
+			if stopErr := stopDaemonForUpdate(daemonInfo.PID); stopErr != nil {
+				fmt.Printf("Warning: failed to stop daemon: %v\n", stopErr)
 			}
 		}
 
@@ -60,14 +60,14 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to download CLI: %w", err)
 		}
-		defer os.Remove(cliTmpPath)
+		defer func() { _ = os.Remove(cliTmpPath) }()
 
 		fmt.Printf("Downloading daemon (%s)...\n", daemonAsset.Name)
 		daemonTmpPath, err := updater.DownloadAsset(daemonAsset)
 		if err != nil {
 			return fmt.Errorf("failed to download daemon: %w", err)
 		}
-		defer os.Remove(daemonTmpPath)
+		defer func() { _ = os.Remove(daemonTmpPath) }()
 
 		// Replace CLI binary (self)
 		selfPath, err := os.Executable()
@@ -80,8 +80,8 @@ var updateCmd = &cobra.Command{
 		}
 
 		fmt.Println("Installing CLI...")
-		if err := updater.ReplaceBinary(selfPath, cliTmpPath); err != nil {
-			return fmt.Errorf("failed to update CLI: %w", err)
+		if replaceErr := updater.ReplaceBinary(selfPath, cliTmpPath); replaceErr != nil {
+			return fmt.Errorf("failed to update CLI: %w", replaceErr)
 		}
 
 		// Replace daemon binary
@@ -91,15 +91,15 @@ var updateCmd = &cobra.Command{
 		}
 
 		fmt.Println("Installing daemon...")
-		if err := updater.ReplaceBinary(daemonBinPath, daemonTmpPath); err != nil {
-			return fmt.Errorf("failed to update daemon: %w", err)
+		if replaceErr := updater.ReplaceBinary(daemonBinPath, daemonTmpPath); replaceErr != nil {
+			return fmt.Errorf("failed to update daemon: %w", replaceErr)
 		}
 
 		// Restart daemon if it was running
 		if daemonWasRunning {
 			fmt.Println("Restarting daemon...")
-			if err := startDaemon(); err != nil {
-				fmt.Printf("Warning: failed to restart daemon: %v\n", err)
+			if startErr := startDaemon(); startErr != nil {
+				fmt.Printf("Warning: failed to restart daemon: %v\n", startErr)
 			}
 		}
 

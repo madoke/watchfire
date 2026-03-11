@@ -112,11 +112,11 @@ func SpawnSandboxed(homeDir, projectDir, command string, args ...string) (*exec.
 		return nil, "", fmt.Errorf("failed to create sandbox profile: %w", err)
 	}
 	if _, err := tmpFile.WriteString(profile); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return nil, "", fmt.Errorf("failed to write sandbox profile: %w", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Build: sandbox-exec -f <tmpfile> <command> <args...>
 	sandboxArgs := []string{"-f", tmpFile.Name(), command}

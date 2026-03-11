@@ -32,11 +32,11 @@ type AppearanceConfig struct {
 // Settings represents global application settings.
 // This corresponds to ~/.watchfire/settings.yaml.
 type Settings struct {
-	Version int                     `yaml:"version"`
-	Agents  map[string]*AgentConfig `yaml:"agents"`
-	Defaults       DefaultsConfig          `yaml:"defaults"`
-	Updates        UpdatesConfig           `yaml:"updates"`
-	Appearance     AppearanceConfig        `yaml:"appearance"`
+	Version    int                     `yaml:"version"`
+	Agents     map[string]*AgentConfig `yaml:"agents"`
+	Defaults   DefaultsConfig          `yaml:"defaults"`
+	Updates    UpdatesConfig           `yaml:"updates"`
+	Appearance AppearanceConfig        `yaml:"appearance"`
 }
 
 // NewSettings creates settings with default values.

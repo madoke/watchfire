@@ -42,13 +42,13 @@ type ProjectWithEntry struct {
 
 // UpdateOptions contains options for updating a project.
 type UpdateOptions struct {
-	ProjectID        string
-	Name             *string
-	Color            *string
-	DefaultAgent     *string
-	AutoMerge        *bool
-	AutoDeleteBranch *bool
-	AutoStartTasks   *bool
+	ProjectID           string
+	Name                *string
+	Color               *string
+	DefaultAgent        *string
+	AutoMerge           *bool
+	AutoDeleteBranch    *bool
+	AutoStartTasks      *bool
 	Definition          *string
 	SecretsInstructions *string
 }

@@ -164,8 +164,8 @@ func (s *projectService) GetGitInfo(_ context.Context, req *pb.ProjectId) (*pb.G
 	if out, err := runGit(entry.Path, "rev-list", "--left-right", "--count", "@{u}...HEAD"); err == nil {
 		parts := strings.Fields(out)
 		if len(parts) == 2 {
-			fmt.Sscanf(parts[0], "%d", &info.Behind)
-			fmt.Sscanf(parts[1], "%d", &info.Ahead)
+			_, _ = fmt.Sscanf(parts[0], "%d", &info.Behind)
+			_, _ = fmt.Sscanf(parts[1], "%d", &info.Ahead)
 		}
 	}
 

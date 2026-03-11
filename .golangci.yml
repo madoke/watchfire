@@ -74,3 +74,18 @@ issues:
     - path: \.pb\.go
       linters:
         - all
+    # Allow stuttering type names in agent package (AgentIssue, AgentIssueType)
+    - path: internal/daemon/agent/issue\.go
+      linters:
+        - revive
+      text: "stutters"
+    # Allow stuttering type name ProjectWithEntry
+    - path: internal/daemon/project/manager\.go
+      linters:
+        - revive
+      text: "stutters"
+    # Allow explicit vt10x.Color type annotation for readability
+    - path: internal/daemon/agent/process\.go
+      linters:
+        - staticcheck
+      text: "QF1011"

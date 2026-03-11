@@ -133,8 +133,8 @@ func getKeyHints(m *Model) string {
 		}
 	}
 
-	hints := append(base, context...)
-	return renderHintsProgressive(hints, m.width)
+	allHints := append(base, context...)
+	return renderHintsProgressive(allHints, m.width)
 }
 
 // renderHintsProgressive renders hints, progressively truncating for narrow terminals.

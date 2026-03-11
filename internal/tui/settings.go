@@ -168,7 +168,7 @@ func (s *SettingsForm) View() string {
 	}
 	labelStyle := settingsLabelStyle.Width(maxLabelLen + 1) // +1 for padding
 
-	var lines []string
+	lines := make([]string, 0, len(s.fields))
 	for i, f := range s.fields {
 		var line string
 		label := labelStyle.Render(f.Label + ":")

@@ -11,11 +11,11 @@ import (
 
 // UpdateState holds the result of the latest update check.
 type UpdateState struct {
-	mu               sync.RWMutex
-	Available        bool
-	LatestVersion    string
-	ReleaseURL       string
-	LastChecked      time.Time
+	mu            sync.RWMutex
+	Available     bool
+	LatestVersion string
+	ReleaseURL    string
+	LastChecked   time.Time
 }
 
 // startUpdateCheck runs an update check in a background goroutine based on settings.

@@ -167,7 +167,7 @@ func (l *lazyDaemonState) StopAgent(projectID string) {
 	}
 }
 
-func (l *lazyDaemonState) UpdateAvailable() (bool, string) {
+func (l *lazyDaemonState) UpdateAvailable() (available bool, version string) {
 	if srv := l.getSrv(); srv != nil {
 		return server.NewTrayState(srv).UpdateAvailable()
 	}
