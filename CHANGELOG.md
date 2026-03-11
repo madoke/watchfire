@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0] Ember
+
+### Added
+
+- Daemon health check (`Ping` RPC) for lightweight connection verification
+
+### Fixed
+
+- Daemon startup race condition — `daemon.yaml` is now written only after the gRPC server is accepting connections, eliminating "connection refused" errors on startup
+- GUI no longer shows "Failed to fetch" when starting tasks immediately after daemon launch
+- TUI no longer shows "connection refused" on first connect attempt
+- GUI settings page (and all views) no longer vanish during brief daemon disconnects — disconnect message now shows as an overlay
+- CLI and GUI daemon startup now verify port readiness before proceeding
+
 ## [0.2.0] Ember
 
 ### Added

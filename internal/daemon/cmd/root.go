@@ -4,9 +4,11 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -81,12 +83,7 @@ func runWithTray(port int) {
 			log.Fatalf("Failed to create server: %v", err)
 		}
 
-		daemonInfo := models.NewDaemonInfo("localhost", srv.Port(), os.Getpid())
-		if err := config.SaveDaemonInfo(daemonInfo); err != nil {
-			log.Fatalf("Failed to write daemon info: %v", err)
-		}
-
-		log.Printf("Daemon started on port %d (PID %d)", srv.Port(), os.Getpid())
+		log.Printf("Daemon starting on port %d (PID %d)", srv.Port(), os.Getpid())
 
 		// Wire agent state changes to tray updates
 		srv.AgentManager().SetOnChange(func() {
@@ -94,13 +91,26 @@ func runWithTray(port int) {
 			tray.UpdateAgents(trayState.ActiveAgents())
 		})
 
-		// Serve gRPC in background
+		// Start serving gRPC first
 		go func() {
 			if err := srv.Serve(); err != nil {
 				log.Printf("Server error: %v", err)
 				tray.Quit()
 			}
 		}()
+
+		// Wait for the port to actually accept connections before writing daemon.yaml
+		if err := waitForPort(srv.Port(), 5*time.Second); err != nil {
+			log.Fatalf("Server failed to become ready: %v", err)
+		}
+
+		// NOW write daemon.yaml — clients can safely connect
+		daemonInfo := models.NewDaemonInfo("localhost", srv.Port(), os.Getpid())
+		if err := config.SaveDaemonInfo(daemonInfo); err != nil {
+			log.Fatalf("Failed to write daemon info: %v", err)
+		}
+
+		log.Printf("Daemon ready on port %d (PID %d)", srv.Port(), os.Getpid())
 
 		// Handle OS signals — quit tray on SIGINT/SIGTERM
 		go func() {
@@ -191,4 +201,19 @@ func (l *lazyDaemonState) RequestShutdown() {
 	if srv := l.getSrv(); srv != nil {
 		server.NewTrayState(srv).RequestShutdown()
 	}
+}
+
+// waitForPort polls until a TCP connection to the given port succeeds or the timeout expires.
+func waitForPort(port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	addr := fmt.Sprintf("localhost:%d", port)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("port %d not ready after %s", port, timeout)
 }

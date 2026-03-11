@@ -50,6 +50,7 @@ export default function App() {
         <div className="titlebar-drag h-8 shrink-0" />
         <UpdateBanner />
 
+        {/* Always render views so they stay mounted during disconnects */}
         {daemonShutdown ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -69,23 +70,26 @@ export default function App() {
               <p className="text-[var(--wf-text-secondary)]">Connecting to daemon...</p>
             </div>
           </div>
-        ) : !connected && wasConnected ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl mb-4">&#x26A1;</div>
-              <h2 className="text-xl font-semibold mb-2">Daemon Disconnected</h2>
-              <p className="text-[var(--wf-text-secondary)] mb-4">
-                Lost connection to the Watchfire daemon. Attempting to reconnect...
-              </p>
-              <div className="w-6 h-6 border-2 border-[var(--wf-fire)] border-t-transparent rounded-full animate-spin mx-auto" />
-            </div>
-          </div>
         ) : (
           <>
             {view === 'dashboard' && <Dashboard />}
             {view === 'add-project' && <AddProjectWizard />}
             {view === 'project' && <ProjectView />}
             {view === 'settings' && <GlobalSettings />}
+
+            {/* Overlay for reconnecting state — views stay visible underneath */}
+            {!connected && wasConnected && (
+              <div className="absolute inset-0 bg-[var(--wf-bg-primary)]/80 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">&#x26A1;</div>
+                  <h2 className="text-xl font-semibold mb-2">Daemon Disconnected</h2>
+                  <p className="text-[var(--wf-text-secondary)] mb-4">
+                    Lost connection to the Watchfire daemon. Attempting to reconnect...
+                  </p>
+                  <div className="w-6 h-6 border-2 border-[var(--wf-fire)] border-t-transparent rounded-full animate-spin mx-auto" />
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

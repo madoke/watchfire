@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { homedir } from 'os'
 import { execFile, execSync } from 'child_process'
+import { createConnection } from 'net'
 import { parse } from 'yaml'
 import { app } from 'electron'
 
@@ -52,11 +53,15 @@ export async function ensureDaemon(): Promise<DaemonInfo> {
   })
   child.unref()
 
-  // Wait for daemon to be ready
+  // Wait for daemon to be ready (daemon.yaml + port accepting connections)
   for (let i = 0; i < 50; i++) {
     await sleep(100)
     const info = getDaemonInfo()
-    if (info) return info
+    if (info) {
+      // Verify the port is actually accepting connections
+      const ready = await waitForPort(info.port, 2000)
+      if (ready) return info
+    }
   }
 
   throw new Error('Daemon failed to start within timeout')
@@ -112,4 +117,32 @@ export async function stopDaemon(): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+/** Check if a port is accepting TCP connections, with a timeout. */
+function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs
+
+    function attempt(): void {
+      if (Date.now() >= deadline) {
+        resolve(false)
+        return
+      }
+      const socket = createConnection({ host: 'localhost', port }, () => {
+        socket.destroy()
+        resolve(true)
+      })
+      socket.on('error', () => {
+        socket.destroy()
+        setTimeout(attempt, 50)
+      })
+      socket.setTimeout(100, () => {
+        socket.destroy()
+        setTimeout(attempt, 50)
+      })
+    }
+
+    attempt()
+  })
 }

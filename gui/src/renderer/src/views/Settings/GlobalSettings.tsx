@@ -11,12 +11,18 @@ export function GlobalSettings() {
   const settings = useSettingsStore((s) => s.settings)
   const fetchSettings = useSettingsStore((s) => s.fetchSettings)
   const loading = useSettingsStore((s) => s.loading)
+  const connected = useAppStore((s) => s.connected)
   const [version, setVersion] = useState<string>('')
 
   useEffect(() => {
     fetchSettings()
     window.watchfire.getVersion().then(setVersion)
   }, [])
+
+  // Re-fetch settings when reconnecting after a disconnect
+  useEffect(() => {
+    if (connected) fetchSettings()
+  }, [connected])
 
   if (loading && !settings) {
     return (

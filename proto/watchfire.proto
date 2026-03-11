@@ -394,6 +394,7 @@ service TaskService {
 service DaemonService {
   rpc GetStatus(google.protobuf.Empty) returns (DaemonStatus);
   rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 // LogService handles session log retrieval

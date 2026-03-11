@@ -47,7 +47,7 @@ The daemon is the backend brain of Watchfire. It manages multiple projects simul
 |--------|----------|
 | **Protocol** | gRPC + gRPC-Web (multiplexed on same port) |
 | **Port** | Dynamic allocation (start with port 0, OS assigns free port) |
-| **Discovery** | Connection info written to `~/.watchfire/daemon.yaml` for client discovery |
+| **Discovery** | Connection info written to `~/.watchfire/daemon.yaml` for client discovery (only after port is confirmed ready) |
 | **Clients** | CLI/TUI use native gRPC, Electron GUI uses gRPC-Web |
 
 ### Multi-Project Management
@@ -1223,7 +1223,7 @@ On every client startup:
 
 | Aspect | Behavior |
 |--------|----------|
-| **Startup** | `watchfire daemon start`, or started automatically by any client command if not running |
+| **Startup** | `watchfire daemon start`, or started automatically by any client command if not running. `daemon.yaml` is written only after the gRPC port is accepting connections. CLI and GUI verify port readiness before proceeding |
 | **Persistence** | **Stays running** when clients close |
 | **Shutdown** | `watchfire daemon stop`, or system tray "Quit" |
 | **Rationale** | Agents can continue working in background; system tray provides visibility |
@@ -1362,6 +1362,7 @@ message Log {
 |-----|---------|----------|-------|
 | `GetStatus` | `Empty` | `DaemonStatus` | Port, uptime, active agents, update info (`update_available`, `update_version`, `update_url`) |
 | `Shutdown` | `Empty` | `Empty` | Graceful shutdown |
+| `Ping` | `Empty` | `Empty` | Lightweight health check |
 
 ### SettingsService
 
@@ -1670,12 +1671,14 @@ Each phase is a separate agent process. The daemon manages all transitions.
 ```
 1. Launch Watchfire.app
 2. Check for updates → show banner if available
-3. Check/start daemon
+3. Check/start daemon (poll daemon.yaml + verify port readiness)
 4. Connect via gRPC-Web
 5. Daemon health check (Git, agent)
 6. Load projects list
 7. Render Dashboard
 ```
+
+**Disconnect behavior:** Views stay mounted during brief disconnects. A translucent overlay with reconnecting spinner appears on top. On reconnect, views re-fetch their data (e.g. settings). Only a full daemon shutdown replaces views with an exit message.
 
 #### G2: Add Project Wizard
 

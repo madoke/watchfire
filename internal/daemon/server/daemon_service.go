@@ -44,6 +44,10 @@ func (s *daemonService) GetStatus(_ context.Context, _ *emptypb.Empty) (*pb.Daem
 	}, nil
 }
 
+func (s *daemonService) Ping(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
 func (s *daemonService) Shutdown(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	go func() {
 		time.Sleep(100 * time.Millisecond)

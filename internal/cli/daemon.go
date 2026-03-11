@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"time"
@@ -51,9 +52,12 @@ func startDaemon() error {
 	// Wait for daemon to be ready (max 5 seconds)
 	for i := 0; i < 50; i++ {
 		time.Sleep(100 * time.Millisecond)
-		running, _, err := config.IsDaemonRunning()
-		if err == nil && running {
-			return nil
+		running, info, err := config.IsDaemonRunning()
+		if err == nil && running && info != nil {
+			// Verify the port is actually accepting connections
+			if waitForPort(info.Port, 2*time.Second) == nil {
+				return nil
+			}
 		}
 	}
 
@@ -84,6 +88,21 @@ func findDaemonBinary() (string, error) {
 	}
 
 	return "", fmt.Errorf("watchfired not found. Install or build it first")
+}
+
+// waitForPort polls until a TCP connection to the given port succeeds or the timeout expires.
+func waitForPort(port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	addr := fmt.Sprintf("localhost:%d", port)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("port %d not ready after %s", port, timeout)
 }
 
 // GetDaemonStatus returns the daemon status.
