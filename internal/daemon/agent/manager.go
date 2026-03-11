@@ -197,8 +197,8 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 
 		// 2. Mark task as started
 		taskMgr := task.NewManager()
-		t, err := taskMgr.GetTask(opts.ProjectPath, opts.TaskNumber)
-		if err == nil && t != nil {
+		t, taskErr := taskMgr.GetTask(opts.ProjectPath, opts.TaskNumber)
+		if taskErr == nil && t != nil {
 			t.Start() // increments AgentSessions, sets StartedAt
 			if t.Status == models.TaskStatusDraft {
 				t.Status = models.TaskStatusReady

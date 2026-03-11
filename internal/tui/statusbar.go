@@ -133,7 +133,9 @@ func getKeyHints(m *Model) string {
 		}
 	}
 
-	allHints := append(base, context...)
+	allHints := make([]hint, 0, len(base)+len(context))
+	allHints = append(allHints, base...)
+	allHints = append(allHints, context...)
 	return renderHintsProgressive(allHints, m.width)
 }
 

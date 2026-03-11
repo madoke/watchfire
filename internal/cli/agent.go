@@ -241,7 +241,7 @@ func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID
 	}
 
 	// Chaining modes: poll for next task starting, then re-subscribe
-	_, _ = os.Stdout.Write([]byte("\r\n--- Task complete. Starting next task... ---\r\n"))
+	_, _ = os.Stdout.WriteString("\r\n--- Task complete. Starting next task... ---\r\n")
 
 	nextRunning := false
 	for i := 0; i < 25; i++ { // up to 5s at 200ms intervals
@@ -270,9 +270,9 @@ func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID
 
 	if !nextRunning {
 		if mode == "start-all" {
-			_, _ = os.Stdout.Write([]byte("\r\n--- Start-all complete: all ready tasks done ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Start-all complete: all ready tasks done ---\r\n")
 		} else {
-			_, _ = os.Stdout.Write([]byte("\r\n--- Wildfire complete: all tasks done ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire complete: all tasks done ---\r\n")
 		}
 		return "break", nil
 	}
@@ -290,9 +290,9 @@ func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID
 
 func printStoppedMessage(mode string) {
 	if mode == "wildfire" {
-		_, _ = os.Stdout.Write([]byte("\r\n--- Wildfire stopped by user ---\r\n"))
+		_, _ = os.Stdout.WriteString("\r\n--- Wildfire stopped by user ---\r\n")
 	} else {
-		_, _ = os.Stdout.Write([]byte("\r\n--- Start-all stopped by user ---\r\n"))
+		_, _ = os.Stdout.WriteString("\r\n--- Start-all stopped by user ---\r\n")
 	}
 }
 
@@ -300,19 +300,19 @@ func printChainingStatus(mode string, agentStatus *pb.AgentStatus) {
 	if mode == "wildfire" {
 		switch agentStatus.WildfirePhase {
 		case "execute":
-			_, _ = os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire Execute: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire Execute: task #%04d ---\r\n", agentStatus.TaskNumber)
 		case "refine":
-			_, _ = os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire Refine: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire Refine: task #%04d ---\r\n", agentStatus.TaskNumber)
 		case "generate":
-			_, _ = os.Stdout.Write([]byte("\r\n--- Wildfire Generate: analyzing project... ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire Generate: analyzing project... ---\r\n")
 		default:
-			_, _ = os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire: task #%04d ---\r\n", agentStatus.TaskNumber)
 		}
 		// If daemon transitioned to chat mode, wildfire is complete
 		if agentStatus.Mode == "chat" {
-			_, _ = os.Stdout.Write([]byte("\r\n--- Wildfire complete: best version achieved. Entering chat mode. ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire complete: best version achieved. Entering chat mode. ---\r\n")
 		}
 	} else {
-		_, _ = os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Start-all: task #%04d ---\r\n", agentStatus.TaskNumber)))
+		_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Start-all: task #%04d ---\r\n", agentStatus.TaskNumber)
 	}
 }

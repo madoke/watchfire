@@ -89,3 +89,8 @@ issues:
       linters:
         - staticcheck
       text: "QF1011"
+    # cgo requires separate import block for "C"
+    - path: internal/daemon/notify/notify_darwin\.go
+      linters:
+        - gocritic
+      text: "dupImport"

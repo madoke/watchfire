@@ -43,7 +43,7 @@ func (s *Server) startUpdateCheck() {
 				if since < 7*24*time.Hour {
 					return
 				}
-			// "every_launch" — always check
+				// "every_launch" — always check
 			}
 		}
 

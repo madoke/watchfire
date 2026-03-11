@@ -44,7 +44,7 @@ type UpdateResult struct {
 
 // CheckForUpdate queries GitHub Releases API for a newer version.
 func CheckForUpdate() (*UpdateResult, error) {
-	req, err := http.NewRequest("GET", releasesURL, http.NoBody)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", releasesURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
