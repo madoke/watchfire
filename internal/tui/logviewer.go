@@ -77,7 +77,7 @@ func (l *LogViewer) SelectedLog() *pb.LogEntry {
 // MoveUp moves cursor up in list view.
 func (l *LogViewer) MoveUp() {
 	if l.viewing {
-		l.viewport.LineUp(1)
+		l.viewport.ScrollUp(1)
 		return
 	}
 	if l.selectedIndex > 0 {
@@ -89,7 +89,7 @@ func (l *LogViewer) MoveUp() {
 // MoveDown moves cursor down in list view.
 func (l *LogViewer) MoveDown() {
 	if l.viewing {
-		l.viewport.LineDown(1)
+		l.viewport.ScrollDown(1)
 		return
 	}
 	if l.selectedIndex < len(l.logs)-1 {
@@ -101,14 +101,14 @@ func (l *LogViewer) MoveDown() {
 // PageUp scrolls the detail viewport up.
 func (l *LogViewer) PageUp() {
 	if l.viewing {
-		l.viewport.HalfViewUp()
+		l.viewport.HalfPageUp()
 	}
 }
 
 // PageDown scrolls the detail viewport down.
 func (l *LogViewer) PageDown() {
 	if l.viewing {
-		l.viewport.HalfViewDown()
+		l.viewport.HalfPageDown()
 	}
 }
 

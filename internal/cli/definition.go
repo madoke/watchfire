@@ -76,10 +76,10 @@ func editInEditor(content, filename string) (string, error) {
 	tmpDir := os.TempDir()
 	tmpFile := filepath.Join(tmpDir, "watchfire-"+filename)
 
-	if err := os.WriteFile(tmpFile, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(content), 0o600); err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	// Run editor
 	cmd := exec.Command(editor, tmpFile)

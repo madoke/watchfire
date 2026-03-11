@@ -51,10 +51,10 @@ var (
 	quitItem    *systray.MenuItem
 
 	// Maps slot index → project ID for actions
-	slotMu          sync.RWMutex
-	slotProjects    [maxAgentSlots]string
-	projSlotIDs     [maxProjectSlots]string
-	previousAgents  map[string]AgentInfo // keyed by projectID, for notification transitions
+	slotMu         sync.RWMutex
+	slotProjects   [maxAgentSlots]string
+	projSlotIDs    [maxProjectSlots]string
+	previousAgents map[string]AgentInfo // keyed by projectID, for notification transitions
 
 	// Cache generated icons by hex color
 	iconCache   = make(map[string][]byte)
@@ -519,19 +519,19 @@ func generateColoredCircle(hexColor string, size int) []byte {
 
 // parseHexColor parses a hex color string (#RGB or #RRGGBB) into RGB values.
 func parseHexColor(hex string) (r, g, b int) {
-	if len(hex) == 0 || hex[0] != '#' {
+	if hex == "" || hex[0] != '#' {
 		return 128, 128, 128 // Default gray
 	}
 	hex = hex[1:]
 
 	switch len(hex) {
 	case 3: // #RGB
-		fmt.Sscanf(hex, "%1x%1x%1x", &r, &g, &b)
+		_, _ = fmt.Sscanf(hex, "%1x%1x%1x", &r, &g, &b)
 		r *= 17 // Expand 0-15 to 0-255
 		g *= 17
 		b *= 17
 	case 6: // #RRGGBB
-		fmt.Sscanf(hex, "%2x%2x%2x", &r, &g, &b)
+		_, _ = fmt.Sscanf(hex, "%2x%2x%2x", &r, &g, &b)
 	default:
 		return 128, 128, 128 // Default gray
 	}

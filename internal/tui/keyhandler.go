@@ -119,7 +119,7 @@ func (m *Model) handleTaskListKey(msg tea.KeyMsg) tea.Cmd {
 			return nil
 		case tea.KeyBackspace:
 			q := m.taskList.searchQuery
-			if len(q) > 0 {
+			if q != "" {
 				m.taskList.UpdateSearch(q[:len(q)-1])
 			}
 			return nil

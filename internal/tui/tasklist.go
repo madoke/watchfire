@@ -195,7 +195,7 @@ func (tl *TaskList) ensureVisible() {
 }
 
 func (tl *TaskList) rebuild() {
-	var items []taskItem
+	items := make([]taskItem, 0, len(tl.tasks)+3)
 
 	// Group tasks by status
 	groups := map[string][]*pb.Task{

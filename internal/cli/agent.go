@@ -30,7 +30,7 @@ func runAgentAttach(projectPath, mode string, taskNumber int32) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Load project config to get project ID
 	project, err := config.LoadProject(projectPath)
@@ -77,7 +77,7 @@ func runAgentAttach(projectPath, mode string, taskNumber int32) error {
 	if err != nil {
 		return err
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
 	// Handle SIGWINCH (window resize)
 	go watchWindowResize(ctx, client, project.ProjectID)
@@ -204,7 +204,7 @@ func streamOutput(ctx context.Context, stream pb.AgentService_SubscribeRawOutput
 			if err == io.EOF || ctx.Err() != nil {
 				// Stream ended
 			} else {
-				term.Restore(int(os.Stdin.Fd()), oldState)
+				_ = term.Restore(int(os.Stdin.Fd()), oldState)
 				return fmt.Errorf("stream error: %w", err)
 			}
 
@@ -223,7 +223,7 @@ func streamOutput(ctx context.Context, stream pb.AgentService_SubscribeRawOutput
 			}
 			break
 		}
-		os.Stdout.Write(chunk.Data)
+		_, _ = os.Stdout.Write(chunk.Data)
 	}
 
 	return nil
@@ -231,7 +231,7 @@ func streamOutput(ctx context.Context, stream pb.AgentService_SubscribeRawOutput
 
 // handleChaining handles the re-subscription logic for wildfire/start-all modes.
 // Returns "break" to exit, "continue" with a new stream to re-subscribe, or "break" on error.
-func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID, mode string, userStopped chan struct{}, oldState *term.State) (string, pb.AgentService_SubscribeRawOutputClient) {
+func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID, mode string, userStopped chan struct{}, oldState *term.State) (cmd string, stream pb.AgentService_SubscribeRawOutputClient) {
 	// If user explicitly stopped, don't wait for next task
 	select {
 	case <-userStopped:
@@ -241,7 +241,7 @@ func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID
 	}
 
 	// Chaining modes: poll for next task starting, then re-subscribe
-	os.Stdout.Write([]byte("\r\n--- Task complete. Starting next task... ---\r\n"))
+	_, _ = os.Stdout.WriteString("\r\n--- Task complete. Starting next task... ---\r\n")
 
 	nextRunning := false
 	for i := 0; i < 25; i++ { // up to 5s at 200ms intervals
@@ -270,29 +270,29 @@ func handleChaining(ctx context.Context, client pb.AgentServiceClient, projectID
 
 	if !nextRunning {
 		if mode == "start-all" {
-			os.Stdout.Write([]byte("\r\n--- Start-all complete: all ready tasks done ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Start-all complete: all ready tasks done ---\r\n")
 		} else {
-			os.Stdout.Write([]byte("\r\n--- Wildfire complete: all tasks done ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire complete: all tasks done ---\r\n")
 		}
 		return "break", nil
 	}
 
 	// Re-subscribe to the new agent's raw output
-	stream, err := client.SubscribeRawOutput(ctx, &pb.SubscribeRawOutputRequest{
+	newStream, err := client.SubscribeRawOutput(ctx, &pb.SubscribeRawOutputRequest{
 		ProjectId: projectID,
 	})
 	if err != nil {
-		term.Restore(int(os.Stdin.Fd()), oldState)
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
 		return "break", nil
 	}
-	return "continue", stream
+	return "continue", newStream
 }
 
 func printStoppedMessage(mode string) {
 	if mode == "wildfire" {
-		os.Stdout.Write([]byte("\r\n--- Wildfire stopped by user ---\r\n"))
+		_, _ = os.Stdout.WriteString("\r\n--- Wildfire stopped by user ---\r\n")
 	} else {
-		os.Stdout.Write([]byte("\r\n--- Start-all stopped by user ---\r\n"))
+		_, _ = os.Stdout.WriteString("\r\n--- Start-all stopped by user ---\r\n")
 	}
 }
 
@@ -300,19 +300,19 @@ func printChainingStatus(mode string, agentStatus *pb.AgentStatus) {
 	if mode == "wildfire" {
 		switch agentStatus.WildfirePhase {
 		case "execute":
-			os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire Execute: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire Execute: task #%04d ---\r\n", agentStatus.TaskNumber)
 		case "refine":
-			os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire Refine: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire Refine: task #%04d ---\r\n", agentStatus.TaskNumber)
 		case "generate":
-			os.Stdout.Write([]byte("\r\n--- Wildfire Generate: analyzing project... ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire Generate: analyzing project... ---\r\n")
 		default:
-			os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Wildfire: task #%04d ---\r\n", agentStatus.TaskNumber)))
+			_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Wildfire: task #%04d ---\r\n", agentStatus.TaskNumber)
 		}
 		// If daemon transitioned to chat mode, wildfire is complete
 		if agentStatus.Mode == "chat" {
-			os.Stdout.Write([]byte("\r\n--- Wildfire complete: best version achieved. Entering chat mode. ---\r\n"))
+			_, _ = os.Stdout.WriteString("\r\n--- Wildfire complete: best version achieved. Entering chat mode. ---\r\n")
 		}
 	} else {
-		os.Stdout.Write([]byte(fmt.Sprintf("\r\n--- Start-all: task #%04d ---\r\n", agentStatus.TaskNumber)))
+		_, _ = fmt.Fprintf(os.Stdout, "\r\n--- Start-all: task #%04d ---\r\n", agentStatus.TaskNumber)
 	}
 }

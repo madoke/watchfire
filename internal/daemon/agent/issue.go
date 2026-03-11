@@ -10,6 +10,7 @@ import (
 // AgentIssueType identifies the type of issue detected.
 type AgentIssueType string
 
+// AgentIssueType values.
 const (
 	AgentIssueNone      AgentIssueType = ""
 	AgentIssueAuth      AgentIssueType = "auth_required"
@@ -74,7 +75,7 @@ func DetectRateLimit(line string) (detected bool, resetTime *time.Time) {
 
 // ParseResetTime parses a reset time string like "4am" or "4:00 PM" with optional timezone.
 // Returns nil if parsing fails.
-func ParseResetTime(timeStr string, tzStr string) *time.Time {
+func ParseResetTime(timeStr, tzStr string) *time.Time {
 	if timeStr == "" {
 		return nil
 	}

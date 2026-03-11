@@ -51,7 +51,6 @@ func (s *SettingsForm) LoadFromProject(project *pb.Project) {
 	s.fields = []SettingsField{
 		{Label: "Name", Key: "name", Value: project.Name, Type: fieldText},
 		{Label: "Color", Key: "color", Value: project.Color, Type: fieldText},
-		{Label: "Default Branch", Key: "default_branch", Value: project.DefaultBranch, Type: fieldText},
 		{Label: "Auto-merge", Key: "auto_merge", BoolValue: project.AutoMerge, Type: fieldToggle},
 		{Label: "Auto-delete Branch", Key: "auto_delete_branch", BoolValue: project.AutoDeleteBranch, Type: fieldToggle},
 		{Label: "Auto-start Tasks", Key: "auto_start_tasks", BoolValue: project.AutoStartTasks, Type: fieldToggle},
@@ -169,7 +168,7 @@ func (s *SettingsForm) View() string {
 	}
 	labelStyle := settingsLabelStyle.Width(maxLabelLen + 1) // +1 for padding
 
-	var lines []string
+	lines := make([]string, 0, len(s.fields))
 	for i, f := range s.fields {
 		var line string
 		label := labelStyle.Render(f.Label + ":")

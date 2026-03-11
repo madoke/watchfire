@@ -24,8 +24,8 @@ func WriteLog(projectID string, taskNumber, sessionNumber int, agent, mode, stat
 	}
 
 	projectLogsDir := filepath.Join(logsDir, projectID)
-	if err := os.MkdirAll(projectLogsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create project logs dir: %w", err)
+	if mkErr := os.MkdirAll(projectLogsDir, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("failed to create project logs dir: %w", mkErr)
 	}
 
 	endedAt := time.Now().UTC()
@@ -55,22 +55,22 @@ func WriteLog(projectID string, taskNumber, sessionNumber int, agent, mode, stat
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	w := bufio.NewWriter(f)
-	fmt.Fprintln(w, "---")
-	fmt.Fprintf(w, "project_id: %s\n", projectID)
-	fmt.Fprintf(w, "task_number: %d\n", taskNumber)
-	fmt.Fprintf(w, "session_number: %d\n", sessionNumber)
-	fmt.Fprintf(w, "agent: %s\n", agent)
-	fmt.Fprintf(w, "mode: %s\n", mode)
-	fmt.Fprintf(w, "started_at: %s\n", entry.StartedAt)
-	fmt.Fprintf(w, "ended_at: %s\n", entry.EndedAt)
-	fmt.Fprintf(w, "status: %s\n", status)
-	fmt.Fprintln(w, "---")
+	_, _ = fmt.Fprintln(w, "---")
+	_, _ = fmt.Fprintf(w, "project_id: %s\n", projectID)
+	_, _ = fmt.Fprintf(w, "task_number: %d\n", taskNumber)
+	_, _ = fmt.Fprintf(w, "session_number: %d\n", sessionNumber)
+	_, _ = fmt.Fprintf(w, "agent: %s\n", agent)
+	_, _ = fmt.Fprintf(w, "mode: %s\n", mode)
+	_, _ = fmt.Fprintf(w, "started_at: %s\n", entry.StartedAt)
+	_, _ = fmt.Fprintf(w, "ended_at: %s\n", entry.EndedAt)
+	_, _ = fmt.Fprintf(w, "status: %s\n", status)
+	_, _ = fmt.Fprintln(w, "---")
 
 	for _, line := range scrollback {
-		fmt.Fprintln(w, line)
+		_, _ = fmt.Fprintln(w, line)
 	}
 
 	return entry, w.Flush()
@@ -92,7 +92,7 @@ func ListLogs(projectID string) ([]*models.LogEntry, error) {
 		return nil, err
 	}
 
-	var logs []*models.LogEntry
+	logs := make([]*models.LogEntry, 0, len(dirEntries))
 	for _, e := range dirEntries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".log") {
 			continue
@@ -138,7 +138,7 @@ func parseLogHeader(path string) (*models.LogEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	entry := &models.LogEntry{}
@@ -165,9 +165,9 @@ func parseLogHeader(path string) (*models.LogEntry, error) {
 	return entry, nil
 }
 
-func parseLogContent(content string) (*models.LogEntry, string) {
+func parseLogContent(content string) (entry *models.LogEntry, body string) {
 	lines := strings.Split(content, "\n")
-	entry := &models.LogEntry{}
+	entry = &models.LogEntry{}
 	headerEnd := -1
 	inHeader := false
 
@@ -189,7 +189,7 @@ func parseLogContent(content string) (*models.LogEntry, string) {
 		return nil, ""
 	}
 
-	body := strings.Join(lines[headerEnd+1:], "\n")
+	body = strings.Join(lines[headerEnd+1:], "\n")
 	return entry, body
 }
 
@@ -205,9 +205,9 @@ func parseLogHeaderLine(entry *models.LogEntry, line string) {
 	case "project_id":
 		entry.ProjectID = val
 	case "task_number":
-		fmt.Sscanf(val, "%d", &entry.TaskNumber)
+		_, _ = fmt.Sscanf(val, "%d", &entry.TaskNumber)
 	case "session_number":
-		fmt.Sscanf(val, "%d", &entry.SessionNumber)
+		_, _ = fmt.Sscanf(val, "%d", &entry.SessionNumber)
 	case "agent":
 		entry.Agent = val
 	case "mode":

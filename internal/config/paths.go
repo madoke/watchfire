@@ -29,11 +29,11 @@ const (
 
 // File names
 const (
-	DaemonFileName   = "daemon.yaml"
-	AgentsFileName   = "agents.yaml"
-	ProjectsFileName = "projects.yaml"
-	SettingsFileName = "settings.yaml"
-	ProjectFileName              = "project.yaml"
+	DaemonFileName              = "daemon.yaml"
+	AgentsFileName              = "agents.yaml"
+	ProjectsFileName            = "projects.yaml"
+	SettingsFileName            = "settings.yaml"
+	ProjectFileName             = "project.yaml"
 	SecretsInstructionsFileName = "instructions.md"
 )
 

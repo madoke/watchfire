@@ -1,80 +1,96 @@
-version: "2"
 run:
+  timeout: 5m
   modules-download-mode: readonly
+
 linters:
   enable:
-    - bodyclose
-    - gocritic
-    - misspell
-    - noctx
-    - prealloc
-    - revive
-    - unconvert
-  settings:
-    gocritic:
-      disabled-checks:
-        - hugeParam
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
-    govet:
-      disable:
-        - fieldalignment
-      enable-all: true
-    misspell:
-      locale: US
-    revive:
-      rules:
-        - name: blank-imports
-        - name: context-as-argument
-        - name: context-keys-type
-        - name: dot-imports
-        - name: error-return
-        - name: error-strings
-        - name: error-naming
-        - name: exported
-        - name: if-return
-        - name: increment-decrement
-        - name: var-naming
-        - name: var-declaration
-        - name: package-comments
-        - name: range
-        - name: receiver-naming
-        - name: time-naming
-        - name: unexported-return
-        - name: indent-error-flow
-        - name: errorf
-  exclusions:
-    generated: lax
-    rules:
-      - linters:
-          - errcheck
-          - gocritic
-        path: _test\.go
-      - linters:
-          - all
-        path: \.pb\.go
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-formatters:
-  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
     - gofmt
     - goimports
-  settings:
-    gofmt:
-      simplify: true
-    goimports:
-      local-prefixes:
-        - github.com/watchfire-io/watchfire
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+    - misspell
+    - unconvert
+    - gocritic
+    - revive
+    - bodyclose
+    - noctx
+    - prealloc
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/watchfire-io/watchfire
+  misspell:
+    locale: US
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Exclude some linters from running on test files
+    - path: _test\.go
+      linters:
+        - gocritic
+        - errcheck
+    # Exclude generated files
+    - path: \.pb\.go
+      linters:
+        - all
+    # Allow stuttering type names in agent package (AgentIssue, AgentIssueType)
+    - path: internal/daemon/agent/issue\.go
+      linters:
+        - revive
+      text: "stutters"
+    # Allow stuttering type name ProjectWithEntry
+    - path: internal/daemon/project/manager\.go
+      linters:
+        - revive
+      text: "stutters"
+    # Allow explicit vt10x.Color type annotation for readability
+    - path: internal/daemon/agent/process\.go
+      linters:
+        - staticcheck
+      text: "QF1011"
+    # cgo requires separate import block for "C"
+    - path: internal/daemon/notify/notify_darwin\.go
+      linters:
+        - gocritic
+      text: "dupImport"

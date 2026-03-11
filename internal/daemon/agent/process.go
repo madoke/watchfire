@@ -38,23 +38,23 @@ type ScreenUpdate struct {
 
 // ProcessOptions contains options for creating a new agent process.
 type ProcessOptions struct {
-	ProjectID string
-	Cmd       *exec.Cmd
-	Rows      int
-	Cols      int
+	ProjectID  string
+	Cmd        *exec.Cmd
+	Rows       int
+	Cols       int
 	SandboxTmp string // temp .sb file to clean up on stop
 }
 
 // Process manages a PTY + vt10x agent process.
 type Process struct {
-	mu         sync.RWMutex
-	projectID  string
-	cmd        *exec.Cmd
-	ptyFile    *os.File
-	vt         vt10x.Terminal
-	rows, cols int
-	done       chan struct{}
-	exitErr    error
+	mu          sync.RWMutex
+	projectID   string
+	cmd         *exec.Cmd
+	ptyFile     *os.File
+	vt          vt10x.Terminal
+	rows, cols  int
+	done        chan struct{}
+	exitErr     error
 	sandboxTmp  string
 	cleanupOnce sync.Once
 
@@ -138,7 +138,7 @@ func (p *Process) readLoop() {
 			p.broadcastRaw(data)
 
 			// Feed data to vt10x terminal emulator
-			p.vt.Write(data)
+			_, _ = p.vt.Write(data)
 
 			// Snapshot screen state and broadcast to GUI subscribers
 			screen := p.snapshotScreen()
@@ -303,28 +303,29 @@ func writeSGRColor(sb *strings.Builder, c vt10x.Color, isFG bool) {
 		return
 	}
 
-	if idx < 8 {
+	switch {
+	case idx < 8:
 		// Standard ANSI 0-7
 		if isFG {
 			fmt.Fprintf(sb, ";%d", 30+idx)
 		} else {
 			fmt.Fprintf(sb, ";%d", 40+idx)
 		}
-	} else if idx < 16 {
+	case idx < 16:
 		// Bright ANSI 8-15
 		if isFG {
 			fmt.Fprintf(sb, ";%d", 90+idx-8)
 		} else {
 			fmt.Fprintf(sb, ";%d", 100+idx-8)
 		}
-	} else if idx < 256 {
+	case idx < 256:
 		// 256-color palette
 		if isFG {
 			fmt.Fprintf(sb, ";38;5;%d", idx)
 		} else {
 			fmt.Fprintf(sb, ";48;5;%d", idx)
 		}
-	} else {
+	default:
 		// 24-bit RGB: value is r<<16 | g<<8 | b
 		r := (idx >> 16) & 0xFF
 		g := (idx >> 8) & 0xFF
@@ -515,11 +516,11 @@ func (p *Process) appendScrollback(data []byte) {
 }
 
 // GetScrollback returns a slice of the scrollback buffer.
-func (p *Process) GetScrollback(offset, limit int) ([]string, int) {
+func (p *Process) GetScrollback(offset, limit int) (lines []string, total int) {
 	p.scrollMu.RLock()
 	defer p.scrollMu.RUnlock()
 
-	total := len(p.scrollback)
+	total = len(p.scrollback)
 	if offset >= total {
 		return nil, total
 	}
@@ -529,9 +530,9 @@ func (p *Process) GetScrollback(offset, limit int) ([]string, int) {
 		end = total
 	}
 
-	result := make([]string, end-offset)
-	copy(result, p.scrollback[offset:end])
-	return result, total
+	lines = make([]string, end-offset)
+	copy(lines, p.scrollback[offset:end])
+	return lines, total
 }
 
 // GetFullScrollback returns all scrollback lines.

@@ -2,6 +2,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,7 +44,7 @@ type UpdateResult struct {
 
 // CheckForUpdate queries GitHub Releases API for a newer version.
 func CheckForUpdate() (*UpdateResult, error) {
-	req, err := http.NewRequest("GET", releasesURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", releasesURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -54,7 +55,7 @@ func CheckForUpdate() (*UpdateResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch releases: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		// No releases yet
@@ -68,8 +69,8 @@ func CheckForUpdate() (*UpdateResult, error) {
 	}
 
 	var release ReleaseInfo
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("decode release: %w", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&release); decodeErr != nil {
+		return nil, fmt.Errorf("decode release: %w", decodeErr)
 	}
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
@@ -121,11 +122,15 @@ func FindAsset(release *ReleaseInfo, name string) *Asset {
 
 // DownloadAsset downloads a release asset to a temp file and returns the path.
 func DownloadAsset(asset *Asset) (string, error) {
-	resp, err := http.Get(asset.BrowserDownloadURL)
+	dlReq, err := http.NewRequestWithContext(context.Background(), "GET", asset.BrowserDownloadURL, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("create download request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(dlReq)
 	if err != nil {
 		return "", fmt.Errorf("download asset: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download returned %d", resp.StatusCode)
@@ -136,17 +141,17 @@ func DownloadAsset(asset *Asset) (string, error) {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-		return "", fmt.Errorf("write temp file: %w", err)
+	if _, copyErr := io.Copy(tmpFile, resp.Body); copyErr != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("write temp file: %w", copyErr)
 	}
 
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Make executable
-	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		os.Remove(tmpFile.Name())
+	if err := os.Chmod(tmpFile.Name(), 0o755); err != nil {
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("chmod temp file: %w", err)
 	}
 
@@ -163,7 +168,7 @@ func ReplaceBinary(destPath, newPath string) error {
 	bakPath := destPath + ".bak"
 
 	// Remove any stale backup
-	os.Remove(bakPath)
+	_ = os.Remove(bakPath)
 
 	// Rename current → backup
 	if err := os.Rename(destPath, bakPath); err != nil {
@@ -178,7 +183,7 @@ func ReplaceBinary(destPath, newPath string) error {
 	}
 
 	// Clean up backup
-	os.Remove(bakPath)
+	_ = os.Remove(bakPath)
 
 	return nil
 }

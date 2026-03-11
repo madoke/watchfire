@@ -58,7 +58,7 @@ func New(port int) (*Server, error) {
 	grpcServer := grpc.NewServer()
 
 	// Initialize analytics
-	if installID, err := config.LoadInstallationID(); err == nil {
+	if installID, loadErr := config.LoadInstallationID(); loadErr == nil {
 		analytics.Init(buildinfo.PostHogKey, installID, buildinfo.Version)
 	}
 	analytics.Track("daemon_started", posthog.NewProperties().Set("origin", "daemon"))
@@ -71,12 +71,12 @@ func New(port int) (*Server, error) {
 	// Create and start file watcher
 	w, err := watcher.New()
 	if err != nil {
-		listener.Close()
+		_ = listener.Close()
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}
-	if err := w.Start(); err != nil {
-		listener.Close()
-		return nil, fmt.Errorf("failed to start watcher: %w", err)
+	if startErr := w.Start(); startErr != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("failed to start watcher: %w", startErr)
 	}
 
 	// Auto-watch all registered projects
@@ -115,14 +115,15 @@ func New(port int) (*Server, error) {
 		var merged bool
 		mergeFailed := false
 		if proj.AutoMerge {
-			var err error
-			merged, err = agent.MergeWorktree(projectPath, taskNumber, proj.DefaultBranch)
-			if err != nil {
-				log.Printf("[merge] Auto-merge failed for task #%04d: %v", taskNumber, err)
+			var mergeErr error
+			merged, mergeErr = agent.MergeWorktree(projectPath, taskNumber)
+			switch {
+			case mergeErr != nil:
+				log.Printf("[merge] Auto-merge failed for task #%04d: %v", taskNumber, mergeErr)
 				mergeFailed = true
-			} else if merged {
-				log.Printf("[merge] Auto-merged task #%04d to %s", taskNumber, proj.DefaultBranch)
-			} else {
+			case merged:
+				log.Printf("[merge] Auto-merged task #%04d into current branch", taskNumber)
+			default:
 				log.Printf("[merge] Task #%04d has no file differences — skipped merge", taskNumber)
 			}
 		}
@@ -149,8 +150,9 @@ func New(port int) (*Server, error) {
 			return nil, err
 		}
 
+		switch mode {
 		// Start-all mode: chain through ready tasks only
-		if mode == agent.ModeStartAll {
+		case agent.ModeStartAll:
 			readyStatus := string(models.TaskStatusReady)
 			tasks, err := taskMgr.ListTasks(projectPath, task.ListOptions{Status: &readyStatus})
 			if err != nil {
@@ -173,10 +175,9 @@ func New(port int) (*Server, error) {
 				Rows:             rows,
 				Cols:             cols,
 			}, nil
-		}
 
 		// Wildfire mode: three-phase state machine
-		if mode == agent.ModeWildfire {
+		case agent.ModeWildfire:
 			// 1. Check for ready tasks → Execute phase
 			readyStatus := string(models.TaskStatusReady)
 			readyTasks, err := taskMgr.ListTasks(projectPath, task.ListOptions{Status: &readyStatus})
@@ -251,9 +252,10 @@ func New(port int) (*Server, error) {
 				Rows:             rows,
 				Cols:             cols,
 			}, nil
-		}
 
-		return nil, nil
+		default:
+			return nil, nil
+		}
 	})
 
 	// Wrap gRPC server with gRPC-Web for Electron GUI access
@@ -547,8 +549,8 @@ func (t *TrayState) StopAgent(projectID string) {
 }
 
 // UpdateAvailable returns whether an update is available and the version.
-func (t *TrayState) UpdateAvailable() (bool, string) {
-	available, version, _ := t.srv.GetUpdateState()
+func (t *TrayState) UpdateAvailable() (available bool, version string) {
+	available, version, _ = t.srv.GetUpdateState()
 	return available, version
 }
 

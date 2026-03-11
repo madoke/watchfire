@@ -56,13 +56,8 @@ func (s *branchService) MergeBranch(_ context.Context, req *pb.MergeBranchReques
 		return nil, err
 	}
 
-	proj, err := config.LoadProject(projectPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load project: %w", err)
-	}
-
 	taskNum := taskNumberFromBranch(req.BranchName)
-	merged, err := agent.MergeWorktree(projectPath, taskNum, proj.DefaultBranch)
+	merged, err := agent.MergeWorktree(projectPath, taskNum)
 	if err != nil {
 		return nil, fmt.Errorf("merge failed: %w", err)
 	}
@@ -121,15 +116,10 @@ func (s *branchService) BulkMerge(_ context.Context, req *pb.BulkBranchRequest) 
 		return nil, err
 	}
 
-	proj, err := config.LoadProject(projectPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load project: %w", err)
-	}
-
-	var results []*pb.Branch
+	results := make([]*pb.Branch, 0, len(req.BranchNames))
 	for _, branchName := range req.BranchNames {
 		taskNum := taskNumberFromBranch(branchName)
-		merged, err := agent.MergeWorktree(projectPath, taskNum, proj.DefaultBranch)
+		merged, err := agent.MergeWorktree(projectPath, taskNum)
 		status := "unmerged"
 		if err == nil && merged {
 			status = "merged"
@@ -166,22 +156,24 @@ func listGitBranches(projectPath, projectID string) ([]*pb.Branch, error) {
 		return nil, fmt.Errorf("failed to list branches: %w", err)
 	}
 
-	// Get the default branch for merge status checks
-	proj, _ := config.LoadProject(projectPath)
-	defaultBranch := "main"
-	if proj != nil && proj.DefaultBranch != "" {
-		defaultBranch = proj.DefaultBranch
+	// Detect current branch for merge status checks
+	currentBranch := "main"
+	revCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	revCmd.Dir = projectPath
+	if revOut, revErr := revCmd.Output(); revErr == nil {
+		currentBranch = strings.TrimSpace(string(revOut))
 	}
 
-	var branches []*pb.Branch
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	branches := make([]*pb.Branch, 0, len(lines))
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
 		taskNum := taskNumberFromBranch(line)
-		status := branchMergeStatus(projectPath, line, defaultBranch)
+		status := branchMergeStatus(projectPath, line, currentBranch)
 		worktreePath := ""
 		padded := fmt.Sprintf("%04d", taskNum)
 		wtPath := filepath.Join(projectPath, ".watchfire", "worktrees", padded)
@@ -207,7 +199,7 @@ func taskNumberFromBranch(branchName string) int {
 		return 0
 	}
 	var num int
-	fmt.Sscanf(parts[1], "%d", &num)
+	_, _ = fmt.Sscanf(parts[1], "%d", &num)
 	return num
 }
 

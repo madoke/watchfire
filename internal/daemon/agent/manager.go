@@ -19,8 +19,8 @@ import (
 
 // Manager-level constants.
 const (
-	pollTaskStatusInterval  = 5 * time.Second
-	pollSignalFileInterval  = 3 * time.Second
+	pollTaskStatusInterval = 5 * time.Second
+	pollSignalFileInterval = 3 * time.Second
 )
 
 // Mode defines the mode an agent runs in.
@@ -39,6 +39,7 @@ const (
 // WildfirePhase identifies the current phase within wildfire mode.
 type WildfirePhase string
 
+// WildfirePhase values.
 const (
 	WildfirePhaseNone     WildfirePhase = ""
 	WildfirePhaseExecute  WildfirePhase = "execute"
@@ -84,7 +85,7 @@ type Manager struct {
 	onChangeFn     func()                   // called when agent state changes (for tray updates)
 	nextTaskFn     func(projectID, projectPath string, mode Mode, phase WildfirePhase, rows, cols int) (*StartOptions, error)
 	onTaskDoneFn   func(projectPath string, taskNumber int, worktreePath string) bool // called after agent exits for a task; returns true to continue chaining
-	watchProjectFn func(projectID, projectPath string)                           // called to ensure project watcher is active
+	watchProjectFn func(projectID, projectPath string)                                // called to ensure project watcher is active
 }
 
 // NewManager creates a new agent manager.
@@ -186,18 +187,18 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 	if (opts.Mode == ModeTask || opts.Mode == ModeStartAll ||
 		(opts.Mode == ModeWildfire && opts.WildfirePhase == WildfirePhaseExecute)) && opts.TaskNumber > 0 {
 		// 1. Create git worktree
-		wt, err := EnsureWorktree(opts.ProjectPath, opts.TaskNumber)
-		if err != nil {
+		wt, wtErr := EnsureWorktree(opts.ProjectPath, opts.TaskNumber)
+		if wtErr != nil {
 			m.mu.Unlock()
-			return nil, fmt.Errorf("failed to create worktree: %w", err)
+			return nil, fmt.Errorf("failed to create worktree: %w", wtErr)
 		}
 		workDir = wt
 		worktreePath = wt
 
 		// 2. Mark task as started
 		taskMgr := task.NewManager()
-		t, err := taskMgr.GetTask(opts.ProjectPath, opts.TaskNumber)
-		if err == nil && t != nil {
+		t, taskErr := taskMgr.GetTask(opts.ProjectPath, opts.TaskNumber)
+		if taskErr == nil && t != nil {
 			t.Start() // increments AgentSessions, sets StartedAt
 			if t.Status == models.TaskStatusDraft {
 				t.Status = models.TaskStatusReady
@@ -269,7 +270,7 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 		SandboxTmp: sandboxTmp,
 	})
 	if err != nil {
-		os.Remove(sandboxTmp)
+		_ = os.Remove(sandboxTmp)
 		m.mu.Unlock()
 		return nil, fmt.Errorf("failed to start agent process: %w", err)
 	}

@@ -55,6 +55,6 @@ func Track(event string, properties posthog.Properties) {
 // Close flushes pending events and shuts down the client.
 func Close() {
 	if client != nil {
-		client.Close()
+		_ = client.Close()
 	}
 }

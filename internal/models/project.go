@@ -28,22 +28,21 @@ func RandomColor() string {
 // Project represents a Watchfire project configuration.
 // This corresponds to the project.yaml file in .watchfire/ directory.
 type Project struct {
-	Version          int       `yaml:"version"`
-	ProjectID        string    `yaml:"project_id"`
-	Name             string    `yaml:"name"`
-	Status           string    `yaml:"status"` // "active" | "archived"
-	Color            string    `yaml:"color"`  // Hex color for GUI
-	DefaultBranch    string    `yaml:"default_branch"`
-	DefaultAgent     string    `yaml:"default_agent"`
-	Sandbox          string    `yaml:"sandbox"`
-	AutoMerge        bool      `yaml:"auto_merge"`
-	AutoDeleteBranch bool      `yaml:"auto_delete_branch"`
-	AutoStartTasks   bool      `yaml:"auto_start_tasks"`
-	Definition            string `yaml:"definition"`
-	SecretsInstructions   string `yaml:"-"` // Loaded from secrets/instructions.md, not stored in project.yaml
-	CreatedAt        time.Time `yaml:"created_at"`
-	UpdatedAt        time.Time `yaml:"updated_at"`
-	NextTaskNumber   int       `yaml:"next_task_number"`
+	Version             int       `yaml:"version"`
+	ProjectID           string    `yaml:"project_id"`
+	Name                string    `yaml:"name"`
+	Status              string    `yaml:"status"` // "active" | "archived"
+	Color               string    `yaml:"color"`  // Hex color for GUI
+	DefaultAgent        string    `yaml:"default_agent"`
+	Sandbox             string    `yaml:"sandbox"`
+	AutoMerge           bool      `yaml:"auto_merge"`
+	AutoDeleteBranch    bool      `yaml:"auto_delete_branch"`
+	AutoStartTasks      bool      `yaml:"auto_start_tasks"`
+	Definition          string    `yaml:"definition"`
+	SecretsInstructions string    `yaml:"-"` // Loaded from secrets/instructions.md, not stored in project.yaml
+	CreatedAt           time.Time `yaml:"created_at"`
+	UpdatedAt           time.Time `yaml:"updated_at"`
+	NextTaskNumber      int       `yaml:"next_task_number"`
 }
 
 // ProjectEntry represents an entry in the global projects.yaml index.
@@ -69,7 +68,6 @@ func NewProject(id, name, path string) *Project {
 		Name:             name,
 		Status:           "active",
 		Color:            RandomColor(),
-		DefaultBranch:    "main",
 		DefaultAgent:     "claude-code",
 		Sandbox:          "sandbox-exec",
 		AutoMerge:        true,

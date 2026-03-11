@@ -48,7 +48,6 @@ func (s *projectService) CreateProject(_ context.Context, req *pb.CreateProjectR
 		Path:             req.Path,
 		Name:             req.Name,
 		Definition:       req.Definition,
-		DefaultBranch:    req.DefaultBranch,
 		AutoMerge:        req.AutoMerge,
 		AutoDeleteBranch: req.AutoDeleteBranch,
 		AutoStartTasks:   req.AutoStartTasks,
@@ -67,9 +66,6 @@ func (s *projectService) UpdateProject(_ context.Context, req *pb.UpdateProjectR
 	}
 	if req.Color != nil {
 		opts.Color = req.Color
-	}
-	if req.DefaultBranch != nil {
-		opts.DefaultBranch = req.DefaultBranch
 	}
 	if req.DefaultAgent != nil {
 		opts.DefaultAgent = req.DefaultAgent
@@ -168,8 +164,8 @@ func (s *projectService) GetGitInfo(_ context.Context, req *pb.ProjectId) (*pb.G
 	if out, err := runGit(entry.Path, "rev-list", "--left-right", "--count", "@{u}...HEAD"); err == nil {
 		parts := strings.Fields(out)
 		if len(parts) == 2 {
-			fmt.Sscanf(parts[0], "%d", &info.Behind)
-			fmt.Sscanf(parts[1], "%d", &info.Ahead)
+			_, _ = fmt.Sscanf(parts[0], "%d", &info.Behind)
+			_, _ = fmt.Sscanf(parts[1], "%d", &info.Ahead)
 		}
 	}
 
