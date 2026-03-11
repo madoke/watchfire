@@ -12,6 +12,7 @@ interface ProjectsState {
   fetchProjects: () => Promise<void>
   fetchAgentStatus: (projectId: string) => Promise<void>
   fetchAllAgentStatuses: () => Promise<void>
+  updateProjectLocal: (projectId: string, updates: Partial<Project>) => void
   reorderProjects: (projectIds: string[]) => Promise<void>
   removeProject: (projectId: string) => Promise<void>
 }
@@ -54,6 +55,14 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     for (const p of projects) {
       get().fetchAgentStatus(p.projectId)
     }
+  },
+
+  updateProjectLocal: (projectId, updates) => {
+    set((s) => ({
+      projects: s.projects.map((p) =>
+        p.projectId === projectId ? { ...p, ...updates } : p
+      )
+    }))
   },
 
   reorderProjects: async (projectIds) => {

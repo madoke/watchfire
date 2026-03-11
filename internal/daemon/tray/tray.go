@@ -28,6 +28,11 @@ var (
 	onExit   func()
 	portItem *systray.MenuItem
 
+	// Serialized tray update channel (prevents concurrent Cocoa API calls)
+	updateCh chan struct{}  // signal channel
+	updateMu sync.Mutex    // protects latestAgents
+	latestAgents []AgentInfo
+
 	// Dynamic tray icons
 	iconIdle   []byte
 	iconActive []byte
@@ -130,6 +135,10 @@ func onReady() {
 
 	// Initialize previous agents map
 	previousAgents = make(map[string]AgentInfo)
+
+	// Start serialized tray update processor
+	updateCh = make(chan struct{}, 1)
+	go processUpdates()
 
 	// Start the daemon services
 	if onStart != nil {
@@ -275,8 +284,49 @@ func startProjectAtSlot(slot int, mode string) {
 	go state.StartAgent(projectID, mode)
 }
 
-// UpdateAgents refreshes the agent menu items, project slots, tray icon, and tooltip.
+// UpdateAgents sends an agent update to the serialized update processor.
+// This is non-blocking and safe to call from any goroutine concurrently.
 func UpdateAgents(agents []AgentInfo) {
+	updateMu.Lock()
+	latestAgents = agents
+	updateMu.Unlock()
+
+	// Signal that there's an update (non-blocking)
+	select {
+	case updateCh <- struct{}{}:
+	default:
+		// Signal already pending — processUpdates will pick up latestAgents
+	}
+}
+
+// processUpdates drains updateCh and applies updates serially with debouncing.
+// This ensures all systray/Cocoa API calls happen on a single goroutine.
+func processUpdates() {
+	for range updateCh {
+		// Debounce: wait briefly for more updates before applying
+		time.Sleep(50 * time.Millisecond)
+
+		// Drain any pending signals
+	drain:
+		for {
+			select {
+			case <-updateCh:
+			default:
+				break drain
+			}
+		}
+
+		// Read the latest agents snapshot
+		updateMu.Lock()
+		agents := latestAgents
+		updateMu.Unlock()
+
+		applyAgentUpdate(agents)
+	}
+}
+
+// applyAgentUpdate performs the actual systray updates. Only called from processUpdates.
+func applyAgentUpdate(agents []AgentInfo) {
 	// Detect agent completions for notifications
 	detectCompletions(previousAgents, agents)
 

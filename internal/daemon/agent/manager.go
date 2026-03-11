@@ -603,7 +603,9 @@ func (m *Manager) persistStateLocked() {
 		log.Printf("Failed to persist agent state: %v", err)
 	}
 
-	// Notify tray/listeners of state change
+	// Notify tray/listeners of state change in a goroutine.
+	// Must use goroutine because onChangeFn calls ListAgents() which needs m.mu.RLock(),
+	// and persistStateLocked is called while m.mu is write-locked.
 	if m.onChangeFn != nil {
 		go m.onChangeFn()
 	}

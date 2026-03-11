@@ -1,6 +1,6 @@
 {
   "name": "watchfire",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Remote control for AI coding agents",
   "main": "./out/main/index.js",
   "scripts": {

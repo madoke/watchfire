@@ -202,11 +202,14 @@ func streamOutput(ctx context.Context, stream pb.AgentService_SubscribeRawOutput
 		chunk, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF || ctx.Err() != nil {
-				// Stream ended
-			} else {
+				// Stream ended normally
+			} else if !isChaining {
+				// Non-chaining: unexpected stream error is fatal
 				_ = term.Restore(int(os.Stdin.Fd()), oldState)
 				return fmt.Errorf("stream error: %w", err)
 			}
+			// In chaining mode, stream errors (e.g. "no agent running") are
+			// expected during task transitions — fall through to re-subscribe.
 
 			// Non-chaining modes: done
 			if !isChaining {

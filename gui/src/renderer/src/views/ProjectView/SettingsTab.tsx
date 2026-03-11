@@ -39,8 +39,10 @@ export function SettingsTab({ projectId, project }: Props) {
   }, [project])
 
   const fetchProjects = useProjectsStore((s) => s.fetchProjects)
+  const updateProjectLocal = useProjectsStore((s) => s.updateProjectLocal)
 
   const save = useCallback(async (updates: Record<string, unknown>) => {
+    updateProjectLocal(projectId, updates as Partial<Project>)
     try {
       const client = getProjectClient()
       await client.updateProject({ projectId, ...updates })
@@ -48,7 +50,7 @@ export function SettingsTab({ projectId, project }: Props) {
     } catch (err) {
       toast('Failed to save settings', 'error')
     }
-  }, [projectId, fetchProjects])
+  }, [projectId, fetchProjects, updateProjectLocal])
 
   const debouncedSave = (updates: Record<string, unknown>) => {
     if (timerRef.current) clearTimeout(timerRef.current)

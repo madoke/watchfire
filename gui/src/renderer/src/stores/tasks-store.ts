@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { Task } from '../generated/watchfire_pb'
 import { getTaskClient } from '../lib/grpc-client'
-import { shallowEqualArray } from '../lib/utils'
 
 interface TasksState {
   tasks: Record<string, Task[]>
@@ -37,11 +36,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     try {
       const client = getTaskClient()
       const resp = await client.listTasks({ projectId, includeDeleted })
-      const existing = get().tasks[projectId]
-      if (existing && shallowEqualArray(existing as Record<string, unknown>[], resp.tasks as Record<string, unknown>[])) {
-        set({ loading: false })
-        return
-      }
       set((s) => ({
         tasks: { ...s.tasks, [projectId]: resp.tasks },
         loading: false

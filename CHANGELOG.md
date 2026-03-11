@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0] Ember
+
+### Fixed
+
+- Daemon crash (exit code 2) when macOS notification fires outside `.app` bundle — `hasAppBundle()` pre-check and `@try/@catch` prevent `NSInternalInconsistencyException`
+- Agent subprocess inheriting `CLAUDECODE` env var — stripped from child process environment to prevent Claude Code nesting issues
+- Project color not updating in sidebar/dashboard after changing in settings — optimistic local store update now re-renders immediately
+- Tasks not updating in GUI when chat agent creates them on disk — removed flawed shallow comparison that suppressed store updates from protobuf-es objects
+- CLI wildfire/start-all crashing with "stream error: no agent running" during task transitions — stream errors are now handled gracefully in chaining mode
+- System tray concurrent update crashes — serialized Cocoa API calls through a single goroutine with debouncing
+- Agent manager deadlock when `onChangeFn` calls `ListAgents()` during state persist — moved callback to a goroutine
+
 ## [0.3.0] Ember
 
 ### Added
