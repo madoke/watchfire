@@ -203,14 +203,12 @@ jobs:
           # Also strip CodeResources from framework bundles
           find dist/mac/Watchfire.app -name "CodeResources" -delete 2>/dev/null || true
           find dist/mac-arm64/Watchfire.app -name "CodeResources" -delete 2>/dev/null || true
-          # Strip wrong-arch node-pty native binaries from each app bundle
-          # Both builds share node_modules, so postinstall + @electron/rebuild leave
-          # binaries for both arches in bin/. lipo fails if both apps have same-arch files.
-          # x64 app: remove arm64 binaries, keep x64
-          find dist/mac/Watchfire.app -path "*/node-pty/bin/darwin-arm64-*" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Clean node-pty native binaries: remove ALL arch-specific dirs from both apps.
+          # @electron/rebuild puts the correct binary in build/Release/pty.node which
+          # node-pty loads first, so bin/ and prebuilds/ are not needed.
+          find dist/mac/Watchfire.app -path "*/node-pty/bin" -type d -exec rm -rf {} + 2>/dev/null || true
           find dist/mac/Watchfire.app -path "*/node-pty/prebuilds" -type d -exec rm -rf {} + 2>/dev/null || true
-          # arm64 app: remove x64 binaries, keep arm64
-          find dist/mac-arm64/Watchfire.app -path "*/node-pty/bin/darwin-x64-*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find dist/mac-arm64/Watchfire.app -path "*/node-pty/bin" -type d -exec rm -rf {} + 2>/dev/null || true
           find dist/mac-arm64/Watchfire.app -path "*/node-pty/prebuilds" -type d -exec rm -rf {} + 2>/dev/null || true
           # Create universal app by merging x64 and arm64
           node -e "
@@ -221,7 +219,7 @@ jobs:
               x64AppPath: path.join(base, 'dist/mac/Watchfire.app'),
               arm64AppPath: path.join(base, 'dist/mac-arm64/Watchfire.app'),
               outAppPath: path.join(base, 'dist/mac-universal/Watchfire.app'),
-              force: true
+              force: true,
             }).then(() => console.log('Universal merge complete'))
               .catch(err => { console.error('Universal merge failed:', err.message); process.exit(1); });
           "
