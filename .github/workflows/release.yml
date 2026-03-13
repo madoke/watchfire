@@ -224,7 +224,7 @@ jobs:
           echo "=== node-pty universal binaries ==="
           file "$X64_PTY/pty.node" "$X64_PTY/spawn-helper"
           # Create universal app by merging x64 and arm64
-          cat > /tmp/universal-merge.cjs << 'MERGESCRIPT'
+          cat > universal-merge.cjs << 'MERGESCRIPT'
           process.on('unhandledRejection', (reason) => { console.error('Unhandled rejection:', reason); process.exit(1); });
           process.on('uncaughtException', (err) => { console.error('Uncaught exception:', err); process.exit(1); });
           const path = require('path');
@@ -244,7 +244,7 @@ jobs:
           }
           main().catch(err => { console.error('Merge failed:', err); process.exit(1); });
           MERGESCRIPT
-          node /tmp/universal-merge.cjs
+          node universal-merge.cjs
           echo "=== Validating universal app bundle ==="
           ls dist/mac-universal/Watchfire.app/Contents/ || { echo "ERROR: Contents dir missing!"; exit 1; }
           file dist/mac-universal/Watchfire.app/Contents/MacOS/Watchfire
