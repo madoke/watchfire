@@ -226,15 +226,24 @@ jobs:
           # Create universal app by merging x64 and arm64
           node -e "
             const path = require('path');
+            const fs = require('fs');
             const { makeUniversalApp } = require('@electron/universal');
             const base = process.cwd();
-            makeUniversalApp({
-              x64AppPath: path.join(base, 'dist/mac/Watchfire.app'),
-              arm64AppPath: path.join(base, 'dist/mac-arm64/Watchfire.app'),
-              outAppPath: path.join(base, 'dist/mac-universal/Watchfire.app'),
-              force: true,
-            }).then(() => console.log('Universal merge complete'))
-              .catch(err => { console.error('Universal merge failed:', err.message); process.exit(1); });
+            (async () => {
+              console.log('Starting universal merge...');
+              await makeUniversalApp({
+                x64AppPath: path.join(base, 'dist/mac/Watchfire.app'),
+                arm64AppPath: path.join(base, 'dist/mac-arm64/Watchfire.app'),
+                outAppPath: path.join(base, 'dist/mac-universal/Watchfire.app'),
+                force: true,
+              });
+              console.log('Universal merge complete');
+              // Validate bundle structure
+              const appDir = path.join(base, 'dist/mac-universal/Watchfire.app');
+              console.log('Contents:', fs.readdirSync(path.join(appDir, 'Contents')));
+              console.log('MacOS:', fs.readdirSync(path.join(appDir, 'Contents', 'MacOS')));
+              console.log('Info.plist exists:', fs.existsSync(path.join(appDir, 'Contents', 'Info.plist')));
+            })().catch(err => { console.error('Universal merge failed:', err); process.exit(1); });
           "
           # Generate app-update.yml for electron-updater (--prepackaged skips doPack where this is normally created)
           mkdir -p dist/mac-universal/Watchfire.app/Contents/Resources
