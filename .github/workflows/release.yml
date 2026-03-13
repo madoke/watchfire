@@ -210,8 +210,9 @@ jobs:
           find dist/mac-arm64/Watchfire.app -path "*/node-pty/bin" -type d -exec rm -rf {} + 2>/dev/null || true
           find dist/mac-arm64/Watchfire.app -path "*/node-pty/prebuilds" -type d -exec rm -rf {} + 2>/dev/null || true
           # Create universal app manually (bypass @electron/universal which silently fails)
-          # 1. Copy arm64 app as base (preserves symlinks, structure)
-          cp -R dist/mac-arm64/Watchfire.app dist/mac-universal/Watchfire.app
+          # 1. Copy arm64 app as base (ditto preserves symlinks, xattrs, resource forks)
+          mkdir -p dist/mac-universal
+          ditto dist/mac-arm64/Watchfire.app dist/mac-universal/Watchfire.app
           # 2. Find all Mach-O files and create universal binaries via lipo
           lipo_count=0
           skip_count=0
