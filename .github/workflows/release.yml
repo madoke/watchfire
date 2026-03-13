@@ -203,6 +203,10 @@ jobs:
           # Also strip CodeResources from framework bundles
           find dist/mac/Watchfire.app -name "CodeResources" -delete 2>/dev/null || true
           find dist/mac-arm64/Watchfire.app -name "CodeResources" -delete 2>/dev/null || true
+          # Strip node-pty prebuilds — @electron/rebuild already built arch-correct binaries in bin/
+          # Keeping prebuilds causes lipo to fail during universal merge (both contain same-arch binaries)
+          find dist/mac/Watchfire.app -path "*/node-pty/prebuilds" -type d -exec rm -rf {} + 2>/dev/null || true
+          find dist/mac-arm64/Watchfire.app -path "*/node-pty/prebuilds" -type d -exec rm -rf {} + 2>/dev/null || true
           # Create universal app by merging x64 and arm64
           node -e "
             const path = require('path');
