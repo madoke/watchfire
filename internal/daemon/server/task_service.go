@@ -70,6 +70,10 @@ func (s *taskService) CreateTask(_ context.Context, req *pb.CreateTaskRequest) (
 		pos := int(*req.Position)
 		opts.Position = &pos
 	}
+	if req.RevisionNumber != nil {
+		rn := int(*req.RevisionNumber)
+		opts.RevisionNumber = &rn
+	}
 
 	t, err := s.manager.CreateTask(projectPath, opts)
 	if err != nil {
@@ -106,6 +110,10 @@ func (s *taskService) UpdateTask(_ context.Context, req *pb.UpdateTaskRequest) (
 	if req.Position != nil {
 		pos := int(*req.Position)
 		opts.Position = &pos
+	}
+	if req.RevisionNumber != nil {
+		rn := int(*req.RevisionNumber)
+		opts.RevisionNumber = &rn
 	}
 
 	t, err := s.manager.UpdateTask(projectPath, opts)

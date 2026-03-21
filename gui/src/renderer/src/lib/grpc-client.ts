@@ -7,6 +7,7 @@ import {
   AgentService,
   LogService,
   BranchService,
+  RevisionService,
   SettingsService
 } from '../generated/watchfire_pb'
 
@@ -45,6 +46,10 @@ export function getLogClient(): Client<typeof LogService> {
 
 export function getBranchClient(): Client<typeof BranchService> {
   return createClient(BranchService, getTransport())
+}
+
+export function getRevisionClient(): Client<typeof RevisionService> {
+  return createClient(RevisionService, getTransport())
 }
 
 export function getSettingsClient(): Client<typeof SettingsService> {

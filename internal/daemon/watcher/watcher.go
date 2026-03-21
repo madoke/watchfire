@@ -26,6 +26,7 @@ const (
 	EventGeneratePhaseEnded // generate_done.yaml created
 	EventDefinitionDone     // definition_done.yaml created
 	EventTasksDone          // tasks_done.yaml created
+	EventRevisionChanged    // revision file changed
 )
 
 // Signal file names for phase completion.
@@ -129,13 +130,19 @@ func (w *Watcher) WatchProject(projectID, projectPath string) error {
 		log.Printf("Warning: failed to watch tasks dir: %v", err)
 	}
 
+	// Watch revisions directory
+	revisionsDir := config.ProjectRevisionsDir(projectPath)
+	if err := w.fsWatcher.Add(revisionsDir); err != nil {
+		log.Printf("Warning: failed to watch revisions dir: %v", err)
+	}
+
 	// Watch secrets directory
 	secretsDir := config.ProjectSecretsDir(projectPath)
 	if err := w.fsWatcher.Add(secretsDir); err != nil {
 		log.Printf("Warning: failed to watch secrets dir: %v", err)
 	}
 
-	log.Printf("[watcher] Watching project %s: %s (tasks: %s, secrets: %s)", projectID, watchfireDir, tasksDir, secretsDir)
+	log.Printf("[watcher] Watching project %s: %s (tasks: %s, revisions: %s, secrets: %s)", projectID, watchfireDir, tasksDir, revisionsDir, secretsDir)
 	return nil
 }
 
@@ -154,6 +161,7 @@ func (w *Watcher) UnwatchProject(projectID string) {
 	// Remove watches (ignore errors)
 	_ = w.fsWatcher.Remove(config.ProjectDir(projectPath))
 	_ = w.fsWatcher.Remove(config.ProjectTasksDir(projectPath))
+	_ = w.fsWatcher.Remove(config.ProjectRevisionsDir(projectPath))
 	_ = w.fsWatcher.Remove(config.ProjectSecretsDir(projectPath))
 }
 
@@ -288,6 +296,21 @@ func (w *Watcher) processFileChange(path string, op fsnotify.Op) {
 				Path:      path,
 			}
 			return
+		}
+
+		// Check for revision files
+		revisionsDir := config.ProjectRevisionsDir(projectPath)
+		if dir == revisionsDir && filepath.Ext(filename) == ".yaml" {
+			revNum := parseTaskNumber(filename) // same format: 0001.yaml
+			if revNum > 0 {
+				w.eventsChan <- Event{
+					Type:       EventRevisionChanged,
+					ProjectID:  projectID,
+					TaskNumber: revNum, // reuse TaskNumber field for revision number
+					Path:       path,
+				}
+				return
+			}
 		}
 
 		// Check for task files

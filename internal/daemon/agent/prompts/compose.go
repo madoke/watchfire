@@ -31,6 +31,12 @@ var wildfireGenerateSystemTemplate string
 //go:embed wildfire-generate-user.txt
 var wildfireGenerateUserTemplate string
 
+//go:embed wildfire-revision-generate-system.txt
+var wildfireRevisionGenerateSystemTemplate string
+
+//go:embed wildfire-revision-generate-user.txt
+var wildfireRevisionGenerateUserTemplate string
+
 //go:embed generate-definition-system.txt
 var generateDefinitionSystemTemplate string
 
@@ -49,6 +55,14 @@ type taskData struct {
 	Title              string
 	Prompt             string
 	AcceptanceCriteria string
+}
+
+// revisionData holds template variables for revision-related prompts.
+type revisionData struct {
+	RevisionNumberPadded string
+	RevisionNumber       int
+	Title                string
+	Content              string
 }
 
 // executeTemplate runs a template with the given data.
@@ -193,6 +207,35 @@ func ComposeWildfireGenerateSystemPrompt(project *models.Project) string {
 // ComposeWildfireGenerateUserPrompt returns the positional argument for wildfire generate phase.
 func ComposeWildfireGenerateUserPrompt() string {
 	return wildfireGenerateUserTemplate
+}
+
+// ComposeWildfireRevisionGenerateSystemPrompt builds the system prompt for wildfire revision-generate phase.
+// The agent reads a specific revision and creates tasks for it.
+func ComposeWildfireRevisionGenerateSystemPrompt(project *models.Project, rev *models.Revision) string {
+	base := ComposePrompt(project)
+
+	data := revisionData{
+		RevisionNumberPadded: padTaskNumber(rev.RevisionNumber),
+		RevisionNumber:       rev.RevisionNumber,
+		Title:                rev.Title,
+		Content:              rev.Content,
+	}
+
+	var b strings.Builder
+	b.WriteString(base)
+	b.WriteString("\n\n")
+	b.WriteString(executeTemplate(wildfireRevisionGenerateSystemTemplate, data))
+
+	return b.String()
+}
+
+// ComposeWildfireRevisionGenerateUserPrompt returns the positional argument for wildfire revision-generate phase.
+func ComposeWildfireRevisionGenerateUserPrompt(rev *models.Revision) string {
+	data := revisionData{
+		RevisionNumberPadded: padTaskNumber(rev.RevisionNumber),
+		Title:                rev.Title,
+	}
+	return executeTemplate(wildfireRevisionGenerateUserTemplate, data)
 }
 
 // ComposeGenerateDefinitionSystemPrompt builds the system prompt for generate-definition mode.

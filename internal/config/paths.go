@@ -20,6 +20,9 @@ const (
 	// WorktreesDirName is the name of the worktrees directory within a project.
 	WorktreesDirName = "worktrees"
 
+	// RevisionsDirName is the name of the revisions directory within a project.
+	RevisionsDirName = "revisions"
+
 	// SecretsDirName is the name of the secrets directory within a project.
 	SecretsDirName = "secrets"
 
@@ -111,6 +114,21 @@ func ProjectWorktreesDir(projectPath string) string {
 	return filepath.Join(ProjectDir(projectPath), WorktreesDirName)
 }
 
+// ProjectRevisionsDir returns the path to a project's revisions directory.
+func ProjectRevisionsDir(projectPath string) string {
+	return filepath.Join(ProjectDir(projectPath), RevisionsDirName)
+}
+
+// RevisionFile returns the path to a specific revision file.
+func RevisionFile(projectPath string, revisionNumber int) string {
+	return filepath.Join(ProjectRevisionsDir(projectPath), RevisionFileName(revisionNumber))
+}
+
+// RevisionFileName returns the filename for a revision number (e.g., "0001.yaml").
+func RevisionFileName(revisionNumber int) string {
+	return formatTaskNumber(revisionNumber) + ".yaml"
+}
+
 // ProjectSecretsDir returns the path to a project's secrets directory.
 func ProjectSecretsDir(projectPath string) string {
 	return filepath.Join(ProjectDir(projectPath), SecretsDirName)
@@ -166,6 +184,10 @@ func EnsureProjectDir(projectPath string) error {
 	}
 	// Create worktrees directory
 	if err := os.MkdirAll(ProjectWorktreesDir(projectPath), 0o755); err != nil {
+		return err
+	}
+	// Create revisions directory
+	if err := os.MkdirAll(ProjectRevisionsDir(projectPath), 0o755); err != nil {
 		return err
 	}
 	// Create secrets directory

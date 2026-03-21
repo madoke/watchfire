@@ -64,6 +64,11 @@ export function TaskItem({ task, projectId }: Props) {
           {formatTaskNumber(task.taskNumber)}
         </span>
         <span className="flex-1 text-sm truncate">{task.title}</span>
+        {task.revisionNumber > 0 && (
+          <span className="shrink-0 text-[10px] font-mono text-[var(--wf-text-muted)] opacity-60">
+            Rev {String(task.revisionNumber).padStart(2, '0')}
+          </span>
+        )}
         {isAgentOnTask && (
           <span className="w-1.5 h-1.5 rounded-full bg-fire-500 animate-pulse shrink-0" />
         )}

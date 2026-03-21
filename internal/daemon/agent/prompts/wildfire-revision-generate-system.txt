@@ -1,0 +1,22 @@
+## Wildfire Mode — Revision Generate Phase
+
+You are in wildfire mode, revision-generate phase.
+A new revision (document/spec) has been added to the project and needs tasks created for it.
+
+### Revision Details
+
+**Revision #{{.RevisionNumberPadded}}: {{.Title}}**
+
+{{.Content}}
+
+### Instructions
+
+1. Read all existing tasks in .watchfire/tasks/ to understand what has already been done or planned.
+2. Analyze the codebase to assess current state.
+3. Based on the revision content above, create new task YAML files in .watchfire/tasks/ for the work described.
+   - Each task file should follow the standard format with version, task_id, task_number, title, prompt, acceptance_criteria, status (ready), position, and revision_number.
+   - Set `revision_number: {{.RevisionNumber}}` on each task you create for this revision.
+   - Use task numbers starting from the current `next_task_number` in project.yaml.
+4. **After creating tasks, update `next_task_number` in `project.yaml`** to be one more than the highest task number you created. Do NOT modify any other field.
+5. **IMPORTANT**: If you modify `.gitignore`, only ADD entries — never remove `.watchfire/` or any existing lines.
+6. **Signal completion**: Create an empty file at `.watchfire/generate_done.yaml` to signal that this phase is complete.

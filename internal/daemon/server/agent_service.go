@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/posthog/posthog-go"
@@ -176,10 +177,50 @@ func (s *agentService) startWildfireMode(req *pb.StartAgentRequest, projectPath 
 			taskSystemPrompt = prompts.ComposeWildfireRefineSystemPrompt(proj, t.TaskNumber, t.Title, t.Prompt, t.AcceptanceCriteria)
 			taskPrompt = prompts.ComposeWildfireRefineUserPrompt(t.TaskNumber, t.Title)
 		} else {
-			// 3. No tasks at all → Generate phase
-			wildfirePhase = agent.WildfirePhaseGenerate
-			taskSystemPrompt = prompts.ComposeWildfireGenerateSystemPrompt(proj)
-			taskPrompt = prompts.ComposeWildfireGenerateUserPrompt()
+			// 3. Check for incomplete revisions → Revision Generate phase
+			incompleteRevisions, revErr := config.LoadActiveRevisions(projectPath)
+			foundRevision := false
+			if revErr == nil && len(incompleteRevisions) > 0 {
+				allTasks, _ := taskMgr.ListTasks(projectPath, task.ListOptions{})
+				for _, rev := range incompleteRevisions {
+					hasPending := false
+					hasAnyTask := false
+					allDone := true
+					for _, t := range allTasks {
+						if t.RevisionNumber == rev.RevisionNumber {
+							hasAnyTask = true
+							if t.Status == models.TaskStatusReady || t.Status == models.TaskStatusDraft {
+								hasPending = true
+							}
+							if t.Status != models.TaskStatusDone {
+								allDone = false
+							}
+						}
+					}
+					if hasPending {
+						continue
+					}
+					if hasAnyTask && allDone {
+						rev.Complete = true
+						rev.UpdatedAt = time.Now().UTC()
+						_ = config.SaveRevision(projectPath, rev)
+						continue
+					}
+					if !hasAnyTask {
+						wildfirePhase = agent.WildfirePhaseRevisionGenerate
+						taskSystemPrompt = prompts.ComposeWildfireRevisionGenerateSystemPrompt(proj, rev)
+						taskPrompt = prompts.ComposeWildfireRevisionGenerateUserPrompt(rev)
+						foundRevision = true
+						break
+					}
+				}
+			}
+			if !foundRevision {
+				// 4. No incomplete revisions → Generate phase
+				wildfirePhase = agent.WildfirePhaseGenerate
+				taskSystemPrompt = prompts.ComposeWildfireGenerateSystemPrompt(proj)
+				taskPrompt = prompts.ComposeWildfireGenerateUserPrompt()
+			}
 		}
 	}
 
@@ -276,13 +317,14 @@ func (s *agentService) GetAgentStatus(_ context.Context, req *pb.ProjectId) (*pb
 // buildAgentStatus creates an AgentStatus proto from a RunningAgent.
 func buildAgentStatus(running *agent.RunningAgent) *pb.AgentStatus {
 	status := &pb.AgentStatus{
-		ProjectId:     running.ProjectID,
-		ProjectName:   running.ProjectName,
-		Mode:          string(running.Mode),
-		TaskNumber:    int32(running.TaskNumber),
-		TaskTitle:     running.TaskTitle,
-		IsRunning:     true,
-		WildfirePhase: string(running.WildfirePhase),
+		ProjectId:      running.ProjectID,
+		ProjectName:    running.ProjectName,
+		Mode:           string(running.Mode),
+		TaskNumber:     int32(running.TaskNumber),
+		TaskTitle:      running.TaskTitle,
+		IsRunning:      true,
+		WildfirePhase:  string(running.WildfirePhase),
+		RevisionNumber: int32(running.RevisionNumber),
 	}
 
 	if issue := running.Process.GetIssue(); issue != nil {

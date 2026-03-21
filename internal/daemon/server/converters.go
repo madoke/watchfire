@@ -41,6 +41,7 @@ func modelToProtoTask(t *models.Task, projectID string) *pb.Task {
 		Status:             string(t.Status),
 		Position:           int32(t.Position),
 		AgentSessions:      int32(t.AgentSessions),
+		RevisionNumber:     int32(t.RevisionNumber),
 		CreatedAt:          timestamppb.New(t.CreatedAt),
 		UpdatedAt:          timestamppb.New(t.UpdatedAt),
 	}
@@ -62,6 +63,18 @@ func modelToProtoTask(t *models.Task, projectID string) *pb.Task {
 	}
 
 	return protoTask
+}
+
+func modelToProtoRevision(r *models.Revision) *pb.Revision {
+	return &pb.Revision{
+		RevisionNumber: int32(r.RevisionNumber),
+		Title:          r.Title,
+		Content:        r.Content,
+		Complete:       r.Complete,
+		Position:       int32(r.Position),
+		CreatedAt:      timestamppb.New(r.CreatedAt),
+		UpdatedAt:      timestamppb.New(r.UpdatedAt),
+	}
 }
 
 func modelToProtoSettings(s *models.Settings) *pb.Settings {

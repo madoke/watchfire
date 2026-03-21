@@ -45,7 +45,8 @@ const (
 	WildfirePhaseNone     WildfirePhase = ""
 	WildfirePhaseExecute  WildfirePhase = "execute"
 	WildfirePhaseRefine   WildfirePhase = "refine"
-	WildfirePhaseGenerate WildfirePhase = "generate"
+	WildfirePhaseGenerate         WildfirePhase = "generate"
+	WildfirePhaseRevisionGenerate WildfirePhase = "revision-generate"
 )
 
 // RunningAgent tracks a currently running agent session.
@@ -56,11 +57,12 @@ type RunningAgent struct {
 	ProjectColor  string
 	Mode          Mode
 	WildfirePhase WildfirePhase
-	TaskNumber    int
-	TaskTitle     string
-	WorktreePath  string
-	Process       *Process
-	userStopped   bool // set by StopAgentByUser to prevent chaining in wildfire/start-all
+	TaskNumber     int
+	TaskTitle      string
+	RevisionNumber int
+	WorktreePath   string
+	Process        *Process
+	userStopped    bool // set by StopAgentByUser to prevent chaining in wildfire/start-all
 }
 
 // StartOptions contains options for starting an agent.
@@ -73,6 +75,7 @@ type StartOptions struct {
 	WildfirePhase    WildfirePhase
 	TaskNumber       int
 	TaskTitle        string
+	RevisionNumber   int
 	TaskPrompt       string // Simple positional argument: "Implement Task #0001: ..."
 	TaskSystemPrompt string // Full system prompt with task details
 	Rows             int
@@ -84,7 +87,7 @@ type Manager struct {
 	mu             sync.RWMutex
 	agents         map[string]*RunningAgent // keyed by ProjectID
 	onChangeFn     func()                   // called when agent state changes (for tray updates)
-	nextTaskFn     func(projectID, projectPath string, mode Mode, phase WildfirePhase, rows, cols int) (*StartOptions, error)
+	nextTaskFn     func(projectID, projectPath string, mode Mode, phase WildfirePhase, revisionNumber, rows, cols int) (*StartOptions, error)
 	onTaskDoneFn   func(projectPath string, taskNumber int, worktreePath string) bool // called after agent exits for a task; returns true to continue chaining
 	watchProjectFn func(projectID, projectPath string)                                // called to ensure project watcher is active
 }
@@ -105,7 +108,7 @@ func (m *Manager) SetOnChange(fn func()) {
 }
 
 // SetNextTaskFn sets a callback used by start-all and wildfire modes to resolve the next task.
-func (m *Manager) SetNextTaskFn(fn func(projectID, projectPath string, mode Mode, phase WildfirePhase, rows, cols int) (*StartOptions, error)) {
+func (m *Manager) SetNextTaskFn(fn func(projectID, projectPath string, mode Mode, phase WildfirePhase, revisionNumber, rows, cols int) (*StartOptions, error)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nextTaskFn = fn
@@ -218,9 +221,9 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 		}
 	}
 
-	// Wildfire refine/generate phases: run at project root (no worktree)
+	// Wildfire refine/generate/revision-generate phases: run at project root (no worktree)
 	if opts.Mode == ModeWildfire &&
-		(opts.WildfirePhase == WildfirePhaseRefine || opts.WildfirePhase == WildfirePhaseGenerate) {
+		(opts.WildfirePhase == WildfirePhaseRefine || opts.WildfirePhase == WildfirePhaseGenerate || opts.WildfirePhase == WildfirePhaseRevisionGenerate) {
 		if opts.TaskSystemPrompt != "" {
 			composedPrompt = opts.TaskSystemPrompt
 		}
@@ -279,16 +282,17 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 	}
 
 	ra := &RunningAgent{
-		ProjectID:     opts.ProjectID,
-		ProjectName:   opts.ProjectName,
-		ProjectPath:   opts.ProjectPath,
-		ProjectColor:  opts.ProjectColor,
-		Mode:          opts.Mode,
-		WildfirePhase: opts.WildfirePhase,
-		TaskNumber:    opts.TaskNumber,
-		TaskTitle:     opts.TaskTitle,
-		WorktreePath:  worktreePath,
-		Process:       proc,
+		ProjectID:      opts.ProjectID,
+		ProjectName:    opts.ProjectName,
+		ProjectPath:    opts.ProjectPath,
+		ProjectColor:   opts.ProjectColor,
+		Mode:           opts.Mode,
+		WildfirePhase:  opts.WildfirePhase,
+		TaskNumber:     opts.TaskNumber,
+		TaskTitle:      opts.TaskTitle,
+		RevisionNumber: opts.RevisionNumber,
+		WorktreePath:   worktreePath,
+		Process:        proc,
 	}
 
 	m.agents[opts.ProjectID] = ra
@@ -304,9 +308,9 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 		go m.pollTaskStatus(opts.ProjectID, opts.ProjectPath, opts.TaskNumber, proc)
 	}
 
-	// Poll signal file as a safety net for wildfire generate/refine phases
+	// Poll signal file as a safety net for wildfire generate/refine/revision-generate phases
 	if opts.Mode == ModeWildfire &&
-		(opts.WildfirePhase == WildfirePhaseGenerate || opts.WildfirePhase == WildfirePhaseRefine) {
+		(opts.WildfirePhase == WildfirePhaseGenerate || opts.WildfirePhase == WildfirePhaseRefine || opts.WildfirePhase == WildfirePhaseRevisionGenerate) {
 		go m.pollSignalFile(opts.ProjectID, opts.ProjectPath, opts.WildfirePhase, proc)
 	}
 
@@ -364,6 +368,7 @@ func (m *Manager) monitorProcess(projectID string, proc *Process) {
 	if taskDoneOK && !ag.userStopped && !hasIssue && (ag.Mode == ModeStartAll || ag.Mode == ModeWildfire) && m.nextTaskFn != nil {
 		agentMode := ag.Mode
 		agentPhase := ag.WildfirePhase
+		agentRevisionNumber := ag.RevisionNumber
 		projectPath := ag.ProjectPath
 		rows, cols := proc.TerminalSize()
 
@@ -375,7 +380,7 @@ func (m *Manager) monitorProcess(projectID string, proc *Process) {
 		m.persistStateLocked()
 		m.mu.Unlock()
 
-		nextOpts, err := m.nextTaskFn(projectID, projectPath, agentMode, agentPhase, rows, cols)
+		nextOpts, err := m.nextTaskFn(projectID, projectPath, agentMode, agentPhase, agentRevisionNumber, rows, cols)
 		if err != nil {
 			log.Printf("%s: error finding next task: %v", agentMode, err)
 			return
@@ -428,7 +433,7 @@ func (m *Manager) pollTaskStatus(projectID, projectPath string, taskNumber int, 
 func (m *Manager) pollSignalFile(projectID, projectPath string, phase WildfirePhase, proc *Process) {
 	var signalFile string
 	switch phase {
-	case WildfirePhaseGenerate:
+	case WildfirePhaseGenerate, WildfirePhaseRevisionGenerate:
 		signalFile = "generate_done.yaml"
 	case WildfirePhaseRefine:
 		signalFile = "refine_done.yaml"

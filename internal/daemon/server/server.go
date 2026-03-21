@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/posthog/posthog-go"
@@ -23,6 +24,7 @@ import (
 	"github.com/watchfire-io/watchfire/internal/daemon/agent"
 	"github.com/watchfire-io/watchfire/internal/daemon/agent/prompts"
 	"github.com/watchfire-io/watchfire/internal/daemon/project"
+	revisionpkg "github.com/watchfire-io/watchfire/internal/daemon/revision"
 	"github.com/watchfire-io/watchfire/internal/daemon/task"
 	"github.com/watchfire-io/watchfire/internal/daemon/tray"
 	"github.com/watchfire-io/watchfire/internal/daemon/watcher"
@@ -37,9 +39,10 @@ type Server struct {
 	httpServer     *http.Server
 	listener       net.Listener
 	port           int
-	projectManager *project.Manager
-	taskManager    *task.Manager
-	agentManager   *agent.Manager
+	projectManager  *project.Manager
+	taskManager     *task.Manager
+	revisionManager *revisionpkg.Manager
+	agentManager    *agent.Manager
 	watcher        *watcher.Watcher
 	updateState    UpdateState
 }
@@ -66,6 +69,7 @@ func New(port int) (*Server, error) {
 	// Create managers
 	projectMgr := project.NewManager()
 	taskMgr := task.NewManager()
+	revisionMgr := revisionpkg.NewManager()
 	agentMgr := agent.NewManager()
 
 	// Create and start file watcher
@@ -144,7 +148,7 @@ func New(port int) (*Server, error) {
 	})
 
 	// Wire next-task callback for start-all and wildfire modes
-	agentMgr.SetNextTaskFn(func(projectID, projectPath string, mode agent.Mode, phase agent.WildfirePhase, rows, cols int) (*agent.StartOptions, error) {
+	agentMgr.SetNextTaskFn(func(projectID, projectPath string, mode agent.Mode, phase agent.WildfirePhase, prevRevisionNumber, rows, cols int) (*agent.StartOptions, error) {
 		proj, err := config.LoadProject(projectPath)
 		if err != nil {
 			return nil, err
@@ -226,7 +230,67 @@ func New(port int) (*Server, error) {
 				}, nil
 			}
 
-			// 3. If previous phase was Generate → wildfire complete, transition to chat
+			// 3. Check for incomplete revisions → Revision Generate phase
+			incompleteRevisions, revErr := config.LoadActiveRevisions(projectPath)
+			if revErr == nil && len(incompleteRevisions) > 0 {
+				allTasks, _ := taskMgr.ListTasks(projectPath, task.ListOptions{})
+				for _, rev := range incompleteRevisions {
+					hasPending := false
+					hasAnyTask := false
+					allDone := true
+					for _, t := range allTasks {
+						if t.RevisionNumber == rev.RevisionNumber {
+							hasAnyTask = true
+							if t.Status == models.TaskStatusReady || t.Status == models.TaskStatusDraft {
+								hasPending = true
+							}
+							if t.Status != models.TaskStatusDone {
+								allDone = false
+							}
+						}
+					}
+					// Skip: revision has pending tasks (will be handled by execute/refine)
+					if hasPending {
+						continue
+					}
+					// Auto-complete: revision has tasks and all are done
+					if hasAnyTask && allDone {
+						rev.Complete = true
+						rev.UpdatedAt = time.Now().UTC()
+						_ = config.SaveRevision(projectPath, rev)
+						continue
+					}
+					// No tasks for this revision
+					if !hasAnyTask {
+						// If we just ran RevisionGenerate for this exact revision and
+						// no tasks were created, the agent determined existing work
+						// already covers it — mark it complete and move on.
+						if phase == agent.WildfirePhaseRevisionGenerate && rev.RevisionNumber == prevRevisionNumber {
+							log.Printf("[wildfire] RevisionGenerate for revision #%04d created no tasks — auto-completing", rev.RevisionNumber)
+							rev.Complete = true
+							rev.UpdatedAt = time.Now().UTC()
+							_ = config.SaveRevision(projectPath, rev)
+							continue
+						}
+						// Generate tasks for this revision
+						return &agent.StartOptions{
+							ProjectID:        projectID,
+							ProjectName:      proj.Name,
+							ProjectPath:      projectPath,
+							ProjectColor:     proj.Color,
+							Mode:             agent.ModeWildfire,
+							WildfirePhase:    agent.WildfirePhaseRevisionGenerate,
+							RevisionNumber:   rev.RevisionNumber,
+							TaskPrompt:       prompts.ComposeWildfireRevisionGenerateUserPrompt(rev),
+							TaskSystemPrompt: prompts.ComposeWildfireRevisionGenerateSystemPrompt(proj, rev),
+							Rows:             rows,
+							Cols:             cols,
+						}, nil
+					}
+				}
+			}
+
+			// 5. If previous phase was Generate → wildfire complete, transition to chat
 			if phase == agent.WildfirePhaseGenerate {
 				return &agent.StartOptions{
 					ProjectID:    projectID,
@@ -239,7 +303,7 @@ func New(port int) (*Server, error) {
 				}, nil
 			}
 
-			// 4. Otherwise → Generate phase
+			// 6. Otherwise → Generate phase
 			return &agent.StartOptions{
 				ProjectID:        projectID,
 				ProjectName:      proj.Name,
@@ -266,14 +330,15 @@ func New(port int) (*Server, error) {
 	)
 
 	srv := &Server{
-		grpcServer:     grpcServer,
-		grpcWebWrapper: grpcWebWrapper,
-		listener:       listener,
-		port:           actualPort,
-		projectManager: projectMgr,
-		taskManager:    taskMgr,
-		agentManager:   agentMgr,
-		watcher:        w,
+		grpcServer:      grpcServer,
+		grpcWebWrapper:  grpcWebWrapper,
+		listener:        listener,
+		port:            actualPort,
+		projectManager:  projectMgr,
+		taskManager:     taskMgr,
+		revisionManager: revisionMgr,
+		agentManager:    agentMgr,
+		watcher:         w,
 	}
 
 	// Register services with generated proto descriptors
@@ -283,6 +348,7 @@ func New(port int) (*Server, error) {
 	pb.RegisterAgentServiceServer(grpcServer, &agentService{manager: agentMgr, watcher: w})
 	pb.RegisterLogServiceServer(grpcServer, &logService{})
 	pb.RegisterBranchServiceServer(grpcServer, &branchService{})
+	pb.RegisterRevisionServiceServer(grpcServer, &revisionService{manager: revisionMgr})
 	pb.RegisterSettingsServiceServer(grpcServer, &settingsService{})
 
 	// Start watcher event processing loop
@@ -366,6 +432,8 @@ func (s *Server) processWatcherEvents() {
 					log.Printf("[task-watch] Failed to sync next_task_number: %v", err)
 				}
 			}
+		case watcher.EventRevisionChanged:
+			log.Printf("[revision-watch] Revision changed: project %s, revision #%04d", event.ProjectID, event.TaskNumber)
 		case watcher.EventRefinePhaseEnded:
 			s.handlePhaseEnded(event, agent.WildfirePhaseRefine)
 		case watcher.EventGeneratePhaseEnded:
@@ -399,6 +467,11 @@ func (s *Server) handleTaskChanged(event watcher.Event) {
 		return
 	}
 
+	// Auto-complete revision if all tasks for it are done
+	if t.RevisionNumber > 0 {
+		go s.checkRevisionComplete(projectPath, t.RevisionNumber)
+	}
+
 	// Use StopAgentForTask to atomically verify the agent is still working on
 	// this specific task before stopping. Run in a goroutine to avoid blocking
 	// the event processing loop — StopAgent can take up to 5+ seconds.
@@ -430,7 +503,10 @@ func (s *Server) handlePhaseEnded(event watcher.Event, expectedPhase agent.Wildf
 		return
 	}
 
-	if running.WildfirePhase != expectedPhase {
+	// Accept revision-generate as equivalent to generate for signal file matching
+	phaseMatch := running.WildfirePhase == expectedPhase ||
+		(expectedPhase == agent.WildfirePhaseGenerate && running.WildfirePhase == agent.WildfirePhaseRevisionGenerate)
+	if !phaseMatch {
 		log.Printf("[phase-watch] Agent in phase %s, not %s", running.WildfirePhase, expectedPhase)
 		_ = os.Remove(event.Path)
 		return
@@ -485,6 +561,34 @@ func (s *Server) handleGenerateModeEnded(event watcher.Event, expectedMode agent
 			log.Printf("Failed to stop agent after %s: %v", expectedMode, err)
 		}
 	}()
+}
+
+// checkRevisionComplete checks if all tasks for a revision are done and marks it complete.
+func (s *Server) checkRevisionComplete(projectPath string, revisionNumber int) {
+	rev, err := config.LoadRevision(projectPath, revisionNumber)
+	if err != nil || rev == nil || rev.Complete {
+		return
+	}
+
+	tasks, err := config.LoadActiveTasks(projectPath)
+	if err != nil {
+		return
+	}
+
+	for _, t := range tasks {
+		if t.RevisionNumber == revisionNumber && t.Status != models.TaskStatusDone {
+			return // Still has incomplete tasks
+		}
+	}
+
+	// All tasks for this revision are done — mark it complete
+	rev.Complete = true
+	rev.UpdatedAt = time.Now().UTC()
+	if err := config.SaveRevision(projectPath, rev); err != nil {
+		log.Printf("[revision-watch] Failed to auto-complete revision #%04d: %v", revisionNumber, err)
+	} else {
+		log.Printf("[revision-watch] Auto-completed revision #%04d", revisionNumber)
+	}
 }
 
 // projectPathForID resolves a project ID to its filesystem path.

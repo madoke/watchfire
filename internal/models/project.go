@@ -43,6 +43,7 @@ type Project struct {
 	CreatedAt           time.Time `yaml:"created_at"`
 	UpdatedAt           time.Time `yaml:"updated_at"`
 	NextTaskNumber      int       `yaml:"next_task_number"`
+	NextRevisionNumber  int       `yaml:"next_revision_number"`
 }
 
 // ProjectEntry represents an entry in the global projects.yaml index.
@@ -76,7 +77,8 @@ func NewProject(id, name, path string) *Project {
 		Definition:       "",
 		CreatedAt:        now,
 		UpdatedAt:        now,
-		NextTaskNumber:   1,
+		NextTaskNumber:     1,
+		NextRevisionNumber: 1,
 	}
 }
 

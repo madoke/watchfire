@@ -31,6 +31,7 @@ type CreateOptions struct {
 	AcceptanceCriteria string
 	Status             string
 	Position           *int
+	RevisionNumber     *int
 }
 
 // UpdateOptions contains options for updating a task.
@@ -43,6 +44,7 @@ type UpdateOptions struct {
 	Success            *bool
 	FailureReason      *string
 	Position           *int
+	RevisionNumber     *int
 }
 
 // ListTasks returns tasks for a project.
@@ -127,6 +129,11 @@ func (m *Manager) CreateTask(projectPath string, opts CreateOptions) (*models.Ta
 		task.Position = taskNumber
 	}
 
+	// Set revision number
+	if opts.RevisionNumber != nil {
+		task.RevisionNumber = *opts.RevisionNumber
+	}
+
 	// Save task
 	if err := config.SaveTask(projectPath, task); err != nil {
 		return nil, err
@@ -173,6 +180,9 @@ func (m *Manager) UpdateTask(projectPath string, opts UpdateOptions) (*models.Ta
 	}
 	if opts.Position != nil {
 		task.Position = *opts.Position
+	}
+	if opts.RevisionNumber != nil {
+		task.RevisionNumber = *opts.RevisionNumber
 	}
 
 	task.UpdatedAt = time.Now().UTC()
