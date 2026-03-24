@@ -2,147 +2,130 @@ package agent
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
-const profileTemplate = `(version 1)
-(deny default)
+// SandboxBackend identifies the sandbox implementation to use.
+const (
+	SandboxAuto     = "auto"     // Platform picks best available
+	SandboxSeatbelt = "seatbelt" // macOS sandbox-exec
+	SandboxLandlock = "landlock" // Linux Landlock LSM (kernel 5.13+)
+	SandboxBwrap    = "bwrap"    // Linux bubblewrap
+	SandboxNone     = "none"     // No sandbox
+)
 
-; READ ACCESS - Allow all, deny sensitive
-(allow file-read* (subpath "/"))
+// SandboxPolicy defines the filesystem access policy for sandboxed agents.
+// All platform backends translate this policy into their native controls.
+type SandboxPolicy struct {
+	HomeDir    string
+	ProjectDir string
 
-; DENY sensitive credential paths
-(deny file-read* (subpath "%s/.ssh"))
-(deny file-read* (subpath "%s/.aws"))
-(deny file-read* (subpath "%s/.gnupg"))
-(deny file-read* (literal "%s/.netrc"))
-(deny file-read* (literal "%s/.npmrc"))
+	// Writable paths (besides ProjectDir which is always writable).
+	WritablePaths []string
 
-; DENY protected user folders (prevents TCC prompts)
-(deny file-read* (subpath "%s/Desktop"))
-(deny file-read* (subpath "%s/Documents"))
-(deny file-read* (subpath "%s/Downloads"))
-(deny file-read* (subpath "%s/Music"))
-(deny file-read* (subpath "%s/Movies"))
-(deny file-read* (subpath "%s/Pictures"))
-; NOTE: Keychains allowed - required for Claude Code auth
+	// Paths denied for both read and write (hidden from the agent).
+	DeniedPaths []string
 
-; WRITE ACCESS - Project + Claude config + caches + temp
-(allow file-write* (subpath "%s"))
-(allow file-write* (subpath "%s/.claude"))
-(allow file-write* (literal "%s/.claude.json"))
-(allow file-write* (subpath "%s/Library/Caches/claude-cli-nodejs"))
-(allow file-write* (subpath "/tmp"))
-(allow file-write* (subpath "/private/tmp"))
-(allow file-write* (subpath "/var/folders"))
-(allow file-write* (subpath "/private/var/folders"))
+	// Regex patterns for write-protected files (e.g. .env, .git/hooks).
+	// Only supported by Seatbelt; other backends ignore these.
+	WriteProtectedPatterns []string
 
-; PACKAGE MANAGER CACHES
-(allow file-write* (subpath "%s/.npm"))
-(allow file-write* (subpath "%s/.yarn"))
-(allow file-write* (subpath "%s/.pnpm-store"))
-(allow file-write* (subpath "%s/.cache"))
-(allow file-write* (subpath "%s/.local/share/pnpm"))
-(allow file-write* (subpath "%s/Library/Caches/npm"))
-(allow file-write* (subpath "%s/Library/Caches/yarn"))
-
-; CLI TOOL CONFIG (Vercel, Firebase, gcloud, etc.)
-(allow file-write* (subpath "%s/Library/Application Support"))
-
-; DEV TOOL CACHES
-(allow file-write* (subpath "%s/.cargo"))
-(allow file-write* (subpath "%s/go"))
-(allow file-write* (subpath "%s/.rustup"))
-
-; PROTECTED - Block writes even in project
-(deny file-write* (regex #"/\.env($|[^/]*)"))
-(deny file-write* (subpath "%s/.git/hooks"))
-
-; NETWORK, DEVICES, PROCESS, IPC
-(allow network*)
-(allow file-read* (subpath "/dev"))
-(allow file-write* (subpath "/dev"))
-(allow process-exec*)
-(allow process-fork)
-(allow process-info*)
-(allow signal)
-(allow mach*)
-(allow sysctl*)
-(allow ipc*)
-(allow file-ioctl)
-`
-
-// GenerateProfile generates a macOS sandbox-exec profile for the given home and project directories.
-// If trace is true, a (trace ...) directive is prepended to log denied operations for debugging.
-func GenerateProfile(homeDir, projectDir string, trace bool) string {
-	profile := fmt.Sprintf(profileTemplate,
-		// DENY sensitive credential paths (5 args: homeDir)
-		homeDir, homeDir, homeDir, homeDir, homeDir,
-		// DENY protected user folders (6 args: homeDir)
-		homeDir, homeDir, homeDir, homeDir, homeDir, homeDir,
-		// WRITE ACCESS - Project + Claude config (4 args: projectDir, homeDir, homeDir, homeDir)
-		projectDir, homeDir, homeDir, homeDir,
-		// PACKAGE MANAGER CACHES (7 args: homeDir)
-		homeDir, homeDir, homeDir, homeDir, homeDir, homeDir, homeDir,
-		// CLI TOOL CONFIG (1 arg: homeDir)
-		homeDir,
-		// DEV TOOL CACHES (3 args: homeDir)
-		homeDir, homeDir, homeDir,
-		// PROTECTED - .git/hooks (1 arg: projectDir)
-		projectDir,
-	)
-	if trace {
-		profile = "(trace \"/tmp/watchfire-sandbox-trace.sb\")\n" + profile
-	}
-	return profile
+	// Enable trace logging of denied operations (debug only).
+	Trace bool
 }
 
-// SpawnSandboxed creates an exec.Cmd that runs the given command inside a macOS sandbox.
-// The caller is responsible for starting the process (e.g. via PTY).
-// Set WATCHFIRE_SANDBOX_TRACE=1 to enable trace logging of denied operations to /tmp/watchfire-sandbox-trace.sb.
+// PlatformDefaults holds OS-specific path additions returned by platformDefaults().
+type PlatformDefaults struct {
+	ExtraWritable []string
+	ExtraDenied   []string
+}
+
+// DefaultPolicy builds the shared sandbox policy, then merges OS-specific extras.
+func DefaultPolicy(homeDir, projectDir string) SandboxPolicy {
+	policy := SandboxPolicy{
+		HomeDir:    homeDir,
+		ProjectDir: projectDir,
+		WritablePaths: []string{
+			filepath.Join(homeDir, ".claude"),
+			filepath.Join(homeDir, ".claude.json"),
+			"/tmp",
+			// Package manager caches
+			filepath.Join(homeDir, ".npm"),
+			filepath.Join(homeDir, ".yarn"),
+			filepath.Join(homeDir, ".pnpm-store"),
+			filepath.Join(homeDir, ".cache"),
+			filepath.Join(homeDir, ".local", "share", "pnpm"),
+			filepath.Join(homeDir, ".local"),
+			// Dev tool caches
+			filepath.Join(homeDir, ".cargo"),
+			filepath.Join(homeDir, "go"),
+			filepath.Join(homeDir, ".rustup"),
+		},
+		DeniedPaths: []string{
+			filepath.Join(homeDir, ".ssh"),
+			filepath.Join(homeDir, ".aws"),
+			filepath.Join(homeDir, ".gnupg"),
+			filepath.Join(homeDir, ".netrc"),
+			filepath.Join(homeDir, ".npmrc"),
+		},
+		WriteProtectedPatterns: []string{
+			`/\.env($|[^/]*)`,
+			filepath.Join(projectDir, ".git", "hooks"),
+		},
+		Trace: os.Getenv("WATCHFIRE_SANDBOX_TRACE") == "1",
+	}
+
+	// Merge platform-specific extras
+	pd := platformDefaults(homeDir)
+	policy.WritablePaths = append(policy.WritablePaths, pd.ExtraWritable...)
+	policy.DeniedPaths = append(policy.DeniedPaths, pd.ExtraDenied...)
+
+	return policy
+}
+
+// SpawnSandboxed creates an exec.Cmd that runs the given command inside a sandbox.
+// The sandbox backend is chosen automatically based on the platform.
+// Returns the command, an optional temp file path for cleanup, and an error.
 func SpawnSandboxed(homeDir, projectDir, command string, args ...string) (*exec.Cmd, string, error) {
-	trace := os.Getenv("WATCHFIRE_SANDBOX_TRACE") == "1"
-	profile := GenerateProfile(homeDir, projectDir, trace)
+	policy := DefaultPolicy(homeDir, projectDir)
+	return spawnSandboxedPlatform(policy, command, args...)
+}
 
-	// Write profile to temp file
-	tmpFile, err := os.CreateTemp("", "watchfire-sandbox-*.sb")
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create sandbox profile: %w", err)
+// SpawnSandboxedWith creates an exec.Cmd using a specific sandbox backend.
+// Pass SandboxNone to run unsandboxed, SandboxAuto for platform default.
+func SpawnSandboxedWith(backend, homeDir, projectDir, command string, args ...string) (*exec.Cmd, string, error) {
+	if backend == SandboxNone {
+		log.Println("[sandbox] Running agent without sandbox (--no-sandbox or sandbox=none)")
+		policy := DefaultPolicy(homeDir, projectDir)
+		return spawnUnsandboxed(policy, command, args...)
 	}
-	if _, err := tmpFile.WriteString(profile); err != nil {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpFile.Name())
-		return nil, "", fmt.Errorf("failed to write sandbox profile: %w", err)
+	if backend == "" || backend == SandboxAuto {
+		return SpawnSandboxed(homeDir, projectDir, command, args...)
 	}
-	_ = tmpFile.Close()
+	// Specific backend requested
+	policy := DefaultPolicy(homeDir, projectDir)
+	return spawnSandboxedWithBackend(backend, policy, command, args...)
+}
 
-	// Build: sandbox-exec -f <tmpfile> <command> <args...>
-	sandboxArgs := []string{"-f", tmpFile.Name(), command}
-	sandboxArgs = append(sandboxArgs, args...)
-	cmd := exec.Command("sandbox-exec", sandboxArgs...)
+// spawnUnsandboxed creates a plain exec.Cmd with no sandboxing.
+func spawnUnsandboxed(policy SandboxPolicy, command string, args ...string) (*exec.Cmd, string, error) {
+	cmd := exec.Command(command, args...)
+	cmd.Dir = policy.ProjectDir
+	cmd.Env = buildBaseEnv(policy.ProjectDir)
+	return cmd, "", nil
+}
 
-	// Set working directory to the project
-	cmd.Dir = projectDir
-
-	// Set environment
+// buildBaseEnv creates the common environment for sandboxed/unsandboxed agents.
+func buildBaseEnv(projectDir string) []string {
 	env := os.Environ()
 	env = removeEnv(env, "CLAUDECODE") // prevent nested-session detection
 	env = setEnv(env, "TERM", "xterm-256color")
 	env = setEnv(env, "COLORTERM", "truecolor")
-
-	// Ensure Homebrew paths are in PATH
-	path := os.Getenv("PATH")
-	for _, p := range []string{"/opt/homebrew/bin", "/usr/local/bin"} {
-		if !strings.Contains(path, p) {
-			path = p + ":" + path
-		}
-	}
-	env = setEnv(env, "PATH", path)
-	cmd.Env = env
-
-	return cmd, tmpFile.Name(), nil
+	return env
 }
 
 // removeEnv removes an environment variable from a slice.
@@ -166,4 +149,19 @@ func setEnv(env []string, key, value string) []string {
 		}
 	}
 	return append(env, prefix+value)
+}
+
+// ValidSandboxBackends returns the list of valid sandbox backend names.
+func ValidSandboxBackends() []string {
+	return []string{SandboxAuto, SandboxSeatbelt, SandboxLandlock, SandboxBwrap, SandboxNone}
+}
+
+// ValidateSandboxBackend checks if the given backend name is valid.
+func ValidateSandboxBackend(backend string) error {
+	for _, b := range ValidSandboxBackends() {
+		if backend == b {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid sandbox backend %q; valid options: %s", backend, strings.Join(ValidSandboxBackends(), ", "))
 }

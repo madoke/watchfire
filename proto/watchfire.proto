@@ -216,6 +216,7 @@ message StartAgentRequest {
   int32 task_number = 4;                        // Required for task/start-all modes
   int32 rows = 5;                               // Initial PTY rows (0 = use default)
   int32 cols = 6;                               // Initial PTY cols (0 = use default)
+  string sandbox = 7;                           // Sandbox backend override: "auto" | "seatbelt" | "landlock" | "bwrap" | "none"
 }
 
 message ScreenBuffer {

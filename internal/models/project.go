@@ -69,7 +69,7 @@ func NewProject(id, name, path string) *Project {
 		Status:           "active",
 		Color:            RandomColor(),
 		DefaultAgent:     "claude-code",
-		Sandbox:          "sandbox-exec",
+		Sandbox:          "auto",
 		AutoMerge:        true,
 		AutoDeleteBranch: true,
 		AutoStartTasks:   true,

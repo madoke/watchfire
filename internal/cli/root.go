@@ -98,6 +98,12 @@ func init() {
 	rootCmd.AddCommand(generateCmd)
 	rootCmd.AddCommand(wildfireCmd)
 
+	// Add --sandbox and --no-sandbox flags to all execution commands
+	for _, cmd := range []*cobra.Command{runCmd, chatCmd, planCmd, generateCmd, wildfireCmd} {
+		cmd.Flags().StringVar(&sandboxOverride, "sandbox", "", "Sandbox backend: auto, seatbelt, landlock, bwrap, none")
+		cmd.Flags().BoolVar(&noSandbox, "no-sandbox", false, "Disable sandboxing for this session")
+	}
+
 	// Daemon management
 	rootCmd.AddCommand(daemonCmd)
 

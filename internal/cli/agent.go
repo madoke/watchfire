@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"golang.org/x/term"
@@ -19,6 +18,13 @@ import (
 // runAgentAttach connects to the daemon, starts an agent, and attaches
 // the terminal to the agent's PTY stream. In wildfire mode, it re-subscribes
 // when a task finishes and the daemon chains to the next ready task.
+// sandboxOverride holds the --sandbox flag value for the current command invocation.
+// Set by CLI flag binding on run/chat/plan/generate/wildfire commands.
+var sandboxOverride string
+
+// noSandbox holds the --no-sandbox flag value.
+var noSandbox bool
+
 func runAgentAttach(projectPath, mode string, taskNumber int32) error {
 	// Ensure daemon is running
 	if err := EnsureDaemon(); err != nil {
@@ -42,11 +48,18 @@ func runAgentAttach(projectPath, mode string, taskNumber int32) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Determine sandbox override
+	sandbox := sandboxOverride
+	if noSandbox {
+		sandbox = "none"
+	}
+
 	// Start agent
 	status, err := client.StartAgent(ctx, &pb.StartAgentRequest{
 		ProjectId:  project.ProjectID,
 		Mode:       mode,
 		TaskNumber: taskNumber,
+		Sandbox:    sandbox,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start agent: %w", err)
@@ -133,26 +146,13 @@ func setupRawTerminal() (*term.State, error) {
 	return oldState, nil
 }
 
-// watchWindowResize handles SIGWINCH signals and sends resize requests.
-func watchWindowResize(ctx context.Context, client pb.AgentServiceClient, projectID string) {
-	sigwinchCh := make(chan os.Signal, 1)
-	signal.Notify(sigwinchCh, syscall.SIGWINCH)
-	for range sigwinchCh {
-		cols, rows, err := term.GetSize(int(os.Stdin.Fd()))
-		if err == nil {
-			_, _ = client.Resize(ctx, &pb.ResizeRequest{
-				ProjectId: projectID,
-				Rows:      int32(rows),
-				Cols:      int32(cols),
-			})
-		}
-	}
-}
+// watchWindowResize handles window resize signals and sends resize requests.
+// Platform-specific implementation in resize_unix.go and resize_windows.go.
 
 // handleSIGINT handles SIGINT in chaining and non-chaining modes.
 func handleSIGINT(ctx context.Context, client pb.AgentServiceClient, projectID string, isChaining bool, userStopped chan struct{}, userStoppedOnce *sync.Once) {
 	sigintCh := make(chan os.Signal, 1)
-	signal.Notify(sigintCh, syscall.SIGINT)
+	signal.Notify(sigintCh, os.Interrupt)
 	<-sigintCh
 	if isChaining {
 		userStoppedOnce.Do(func() { close(userStopped) })

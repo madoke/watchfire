@@ -2,7 +2,7 @@
 
 ## Summary
 
-Watchfire orchestrates coding agent sessions (starting with Claude Code) based on task files. It manages multiple projects in parallel, with one active task per project. A daemon (`watchfired`) manages all logic: spawning agents in sandboxed PTYs, terminal emulation, git worktree workflows, and file watching. Thin clients (CLI/TUI and GUI) connect via gRPC to display task status and live terminal output.
+Watchfire orchestrates coding agent sessions (starting with Claude Code) based on task files. It manages multiple projects in parallel, with one active task per project. A daemon (`watchfired`) manages all logic: spawning agents in sandboxed PTYs (macOS/Linux) or unsandboxed (Windows), terminal emulation, git worktree workflows, and file watching. Thin clients (CLI/TUI and GUI) connect via gRPC to display task status and live terminal output. Supported platforms: macOS, Linux, and Windows.
 
 ## Components
 
@@ -22,7 +22,7 @@ Watchfire orchestrates coding agent sessions (starting with Claude Code) based o
 - **TUI framework**: `github.com/charmbracelet/bubbletea`
 - **System tray**: `github.com/getlantern/systray`
 - **File watching**: `github.com/fsnotify/fsnotify`
-- **Sandbox**: macOS `sandbox-exec`
+- **Sandbox**: macOS `sandbox-exec` (Seatbelt), Linux Landlock (kernel 5.13+) / bubblewrap (fallback), Windows unsandboxed
 
 ---
 
@@ -98,19 +98,22 @@ The daemon is the backend brain of Watchfire. It manages multiple projects simul
 
 | Aspect | Behavior |
 |--------|----------|
-| **Sandbox** | Agent process runs inside macOS `sandbox-exec` |
-| **Sandbox profile** | Custom profile restricting filesystem/network access |
-| **Profile storage** | Embedded in binary, not user-visible |
+| **Sandbox** | Cross-platform: macOS Seatbelt, Linux Landlock/bubblewrap |
+| **Backend selection** | `auto` (default): platform picks best. Configurable per-project or globally. CLI flag `--sandbox`/`--no-sandbox` |
+| **macOS backend** | `sandbox-exec -f <profile>` (Seatbelt) |
+| **Linux backend** | Landlock (kernel 5.13+, zero deps) → bubblewrap fallback → unsandboxed |
+| **Profile storage** | Generated at runtime from `SandboxPolicy` struct |
 | **Agent permissions** | Agent runs in "yolo mode" — full permissions within sandbox |
 | **Claude Code flag** | `--dangerously-skip-permissions` |
 | **Security model** | Agent has free reign inside sandbox; sandbox limits blast radius |
-| **Write-allowed paths** | Project dir, `~/.claude`, temp dirs, package manager caches (`~/.npm`, `~/.yarn`, `~/.pnpm-store`, `~/.cache`, `~/Library/Caches/*`), dev tool caches (`~/.cargo`, `~/go`, `~/.rustup`), CLI tool config (`~/Library/Application Support`) |
-| **Denied paths (read+write)** | `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`, `~/Desktop`, `~/Documents`, `~/Downloads`, `~/Music`, `~/Movies`, `~/Pictures`, `.env` files, `.git/hooks` |
+| **Write-allowed paths** | Project dir, `~/.claude`, temp dirs, package manager caches (`~/.npm`, `~/.yarn`, `~/.pnpm-store`, `~/.cache`), dev tool caches (`~/.cargo`, `~/go`, `~/.rustup`). macOS also: `~/Library/Caches/*`, `~/Library/Application Support` |
+| **Denied paths (read+write)** | `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.netrc`, `~/.npmrc`. macOS also: `~/Desktop`, `~/Documents`, `~/Downloads`, `~/Music`, `~/Movies`, `~/Pictures`. `.env` files, `.git/hooks` (Seatbelt only — regex patterns) |
+| **Settings** | Global: `settings.yaml` → `defaults.default_sandbox`. Per-project: `project.yaml` → `sandbox`. CLI: `--sandbox <backend>` / `--no-sandbox` |
 
 ### PTY & Terminal Emulation
 
 ```
-sandbox-exec (macOS sandbox)
+Sandbox (platform-specific)
        ↓ contains
 Coding Agent (e.g., Claude Code with --dangerously-skip-permissions)
        ↓ runs inside
@@ -135,8 +138,7 @@ Coding Agent (e.g., Claude Code with --dangerously-skip-permissions)
 
 | Aspect | Behavior |
 |--------|----------|
-| **Sandbox** | Agent wrapped in `sandbox-exec -f <profile>` (macOS) |
-| **Sandbox profile** | Embedded in binary, not user-visible |
+| **Sandbox** | Cross-platform: auto-detected or user-selected backend |
 | **PTY** | Agent runs in PTY via `github.com/creack/pty` |
 | **Terminal emulation** | Output parsed by `github.com/hinshun/vt10x` |
 | **Working directory** | Task mode: worktree (`.watchfire/worktrees/<task_number>/`). Chat mode: project root. |
@@ -148,7 +150,15 @@ Coding Agent (e.g., Claude Code with --dangerously-skip-permissions)
 
 **Example spawn command (Claude Code)**:
 ```bash
+# macOS (Seatbelt)
 sandbox-exec -f <profile> claude --dangerously-skip-permissions --append-system-prompt "..." [--prompt "..."]
+
+# Linux (Landlock — daemon re-invokes itself)
+watchfired --sandbox-exec <config.json>
+# → applies Landlock restrictions → exec() claude ...
+
+# Linux (bubblewrap)
+bwrap --ro-bind / / --bind <project> <project> --tmpfs ~/.ssh ... -- claude ...
 ```
 
 ### Task Lifecycle (Reactive Model)
@@ -1024,7 +1034,7 @@ name: "my-project"
 status: "active"                      # active | archived (future)
 color: "#22c55e"                      # Project color for GUI (hex)
 default_agent: "claude-code"
-sandbox: "sandbox-exec"               # Internal: sandbox-exec, future: docker, etc.
+sandbox: "auto"                         # "auto" | "seatbelt" | "landlock" | "bwrap" | "none"
 auto_merge: true
 auto_delete_branch: true
 auto_start_tasks: true
@@ -1062,7 +1072,7 @@ defaults:
   auto_merge: true
   auto_delete_branch: true
   auto_start_tasks: true
-  default_sandbox: "sandbox-exec"
+  default_sandbox: "auto"
   default_agent: "claude-code"
 
 updates:
@@ -2151,12 +2161,22 @@ brew install watchfire   # Installs CLI + daemon
 
 Tap repo: `watchfire/homebrew-tap` (separate repo, auto-updated on release)
 
+### Windows
+
+| Aspect | Behavior |
+|--------|----------|
+| **Binaries** | `watchfire.exe` and `watchfired.exe` (amd64, arm64) |
+| **Installation** | Download from GitHub Releases, add to PATH |
+| **Sandbox** | Not available — agent runs unsandboxed |
+| **System tray** | Supported via systray (requires CGO; headless without CGO) |
+| **Notifications** | Windows toast notifications via `beeep` |
+
 ### Distribution
 
 | Channel | What |
 |---------|------|
-| **GitHub Releases** | DMG, CLI binaries, daemon binaries |
-| **Homebrew** | CLI + daemon |
+| **GitHub Releases** | DMG (macOS), exe binaries (Windows), tarballs (Linux) |
+| **Homebrew** | CLI + daemon (macOS/Linux) |
 | **Mac App Store** | Future consideration |
 
 ### Auto-Update

@@ -1,4 +1,4 @@
-//go:build linux
+//go:build windows
 
 package notify
 
@@ -8,13 +8,13 @@ import (
 	"github.com/gen2brain/beeep"
 )
 
-type linuxNotifier struct{}
+type windowsNotifier struct{}
 
 func init() {
-	platform = &linuxNotifier{}
+	platform = &windowsNotifier{}
 }
 
-func (l *linuxNotifier) Send(title, message string, icon []byte) error {
+func (w *windowsNotifier) Send(title, message string, icon []byte) error {
 	f, err := os.CreateTemp("", "watchfire-notify-*.png")
 	if err != nil {
 		return beeep.Notify(title, message, "")

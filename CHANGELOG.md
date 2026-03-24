@@ -5,12 +5,25 @@
 ### Added
 
 - `watchfire chat` CLI command — dedicated command to start an interactive chat session with full project context
+- **Cross-platform sandbox abstraction** — shared `SandboxPolicy` with platform-specific backends: macOS Seatbelt, Linux Landlock (kernel 5.13+) / bubblewrap (fallback)
+- **Landlock sandbox** (Linux) — zero-dependency kernel-based sandboxing using `go-landlock`, daemon re-invokes itself as helper to apply restrictions before exec
+- **Bubblewrap sandbox** (Linux) — namespace-based isolation with read-only root, writable project dir, hidden credential dirs
+- `--sandbox <backend>` and `--no-sandbox` CLI flags on `run`, `chat`, `plan`, `generate`, `wildfire` commands
+- Sandbox backend configurable per-project (`project.yaml`) and globally (`settings.yaml`)
+- System tray icon abstraction for Linux — `setTrayIcon()` helper dispatches between macOS template icons and Linux standard icons
+- **Windows build support** — CLI and daemon compile and run on Windows (unsandboxed, no POSIX signal dependencies)
+- **Windows notifications** — toast notifications via `beeep` library
+- Platform-aware updater asset names — supports `watchfire-<os>-<arch>[.exe]` format
 
 ### Fixed
 
 - Agent chaining not stopping on auth (401) or rate-limit (429) errors — start-all/wildfire mode now checks for active issues before spawning the next agent
+- Linux notification double-close bug — `notify_linux.go` now properly handles file close errors
 
 ### Changed
+
+- Default sandbox changed from `"sandbox-exec"` to `"auto"` — platform auto-detects best backend
+- Sandbox setting priority: CLI flag > project setting > global default
 
 ## [0.5.0] Ember
 

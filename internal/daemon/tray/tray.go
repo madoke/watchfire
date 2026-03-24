@@ -82,11 +82,21 @@ func Quit() {
 	systray.Quit()
 }
 
+// setTrayIcon sets the tray icon using the appropriate API for each platform.
+// macOS uses template icons (monochrome, adapts to light/dark); Linux uses SetIcon directly.
+func setTrayIcon(data []byte) {
+	if runtime.GOOS == "darwin" {
+		systray.SetTemplateIcon(data, data)
+	} else {
+		systray.SetIcon(data)
+	}
+}
+
 func onReady() {
 	// Generate tray icons
 	iconIdle = iconData
 	iconActive = generateActiveIcon(iconData)
-	systray.SetTemplateIcon(iconIdle, iconIdle)
+	setTrayIcon(iconIdle)
 	systray.SetTooltip(formatTooltip(0, 0))
 
 	// Header
@@ -191,6 +201,8 @@ func openGUI() {
 		cmd = exec.Command("open", "-b", "io.watchfire.app")
 	case "linux":
 		cmd = exec.Command("xdg-open", "watchfire://")
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "watchfire://")
 	default:
 		log.Printf("Open GUI not supported on %s", runtime.GOOS)
 		return
@@ -357,9 +369,9 @@ func applyAgentUpdate(agents []AgentInfo) {
 
 	// Swap tray icon based on active agents
 	if len(agents) > 0 {
-		systray.SetTemplateIcon(iconActive, iconActive)
+		setTrayIcon(iconActive)
 	} else {
-		systray.SetTemplateIcon(iconIdle, iconIdle)
+		setTrayIcon(iconIdle)
 	}
 
 	// Hide all agent slots first

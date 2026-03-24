@@ -1696,6 +1696,7 @@ type StartAgentRequest struct {
 	TaskNumber    int32                  `protobuf:"varint,4,opt,name=task_number,json=taskNumber,proto3" json:"task_number,omitempty"` // Required for task/start-all modes
 	Rows          int32                  `protobuf:"varint,5,opt,name=rows,proto3" json:"rows,omitempty"`                               // Initial PTY rows (0 = use default)
 	Cols          int32                  `protobuf:"varint,6,opt,name=cols,proto3" json:"cols,omitempty"`                               // Initial PTY cols (0 = use default)
+	Sandbox       string                 `protobuf:"bytes,7,opt,name=sandbox,proto3" json:"sandbox,omitempty"`                          // Sandbox backend override: "auto" | "seatbelt" | "landlock" | "bwrap" | "none"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1770,6 +1771,13 @@ func (x *StartAgentRequest) GetCols() int32 {
 		return x.Cols
 	}
 	return 0
+}
+
+func (x *StartAgentRequest) GetSandbox() string {
+	if x != nil {
+		return x.Sandbox
+	}
+	return ""
 }
 
 type ScreenBuffer struct {
@@ -3615,7 +3623,7 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"is_running\x18\x06 \x01(\bR\tisRunning\x12%\n" +
 	"\x0ewildfire_phase\x18\a \x01(\tR\rwildfirePhase\x120\n" +
 	"\x05issue\x18\b \x01(\v2\x15.watchfire.AgentIssueH\x00R\x05issue\x88\x01\x01B\b\n" +
-	"\x06_issue\"\xbb\x01\n" +
+	"\x06_issue\"\xd5\x01\n" +
 	"\x11StartAgentRequest\x12*\n" +
 	"\x04meta\x18\x01 \x01(\v2\x16.watchfire.RequestMetaR\x04meta\x12\x1d\n" +
 	"\n" +
@@ -3624,7 +3632,8 @@ const file_proto_watchfire_proto_rawDesc = "" +
 	"\vtask_number\x18\x04 \x01(\x05R\n" +
 	"taskNumber\x12\x12\n" +
 	"\x04rows\x18\x05 \x01(\x05R\x04rows\x12\x12\n" +
-	"\x04cols\x18\x06 \x01(\x05R\x04cols\"\xcc\x01\n" +
+	"\x04cols\x18\x06 \x01(\x05R\x04cols\x12\x18\n" +
+	"\asandbox\x18\a \x01(\tR\asandbox\"\xcc\x01\n" +
 	"\fScreenBuffer\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x14\n" +

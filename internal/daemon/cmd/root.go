@@ -37,7 +37,16 @@ func init() {
 }
 
 // Execute runs the daemon CLI.
+// Before normal Cobra dispatch, it checks for the --sandbox-exec flag
+// which is used by the Landlock helper to apply sandbox restrictions.
 func Execute() {
+	// Intercept --sandbox-exec before Cobra — this is a fast-path for the
+	// Landlock sandbox helper which needs to apply restrictions then exec().
+	if len(os.Args) > 2 && os.Args[1] == "--sandbox-exec" {
+		runLandlockHelper(os.Args[2:])
+		return // never reached on success (exec replaces process)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

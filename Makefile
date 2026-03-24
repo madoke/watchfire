@@ -74,6 +74,17 @@ build-cli-amd64:
 	@mkdir -p $(BUILD_DIR)
 	GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(CLI_BINARY)-amd64 ./$(CMD_DIR)/watchfire
 
+# Windows builds (cross-compilation, no CGO — tray disabled, daemon runs headless)
+build-windows-amd64:
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(CLI_BINARY)-windows-amd64.exe ./$(CMD_DIR)/watchfire
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(DAEMON_BINARY)-windows-amd64.exe ./$(CMD_DIR)/watchfired
+
+build-windows-arm64:
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(CLI_BINARY)-windows-arm64.exe ./$(CMD_DIR)/watchfire
+	GOOS=windows GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(DAEMON_BINARY)-windows-arm64.exe ./$(CMD_DIR)/watchfired
+
 # Universal (fat) binaries via lipo — for release packaging
 build-universal: build-daemon-arm64 build-daemon-amd64 build-cli-arm64 build-cli-amd64
 	@echo "Creating universal binaries..."

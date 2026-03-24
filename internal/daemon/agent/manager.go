@@ -77,6 +77,7 @@ type StartOptions struct {
 	TaskSystemPrompt string // Full system prompt with task details
 	Rows             int
 	Cols             int
+	Sandbox          string // "auto" | "seatbelt" | "landlock" | "bwrap" | "none"
 }
 
 // Manager handles agent lifecycle operations.
@@ -256,7 +257,11 @@ func (m *Manager) StartAgent(opts StartOptions) (*RunningAgent, error) {
 	}
 
 	// Spawn sandboxed command — sandbox scoped to project root (covers worktrees + task files)
-	cmd, sandboxTmp, err := SpawnSandboxed(homeDir, opts.ProjectPath, agentPath, args...)
+	sandbox := opts.Sandbox
+	if sandbox == "" {
+		sandbox = SandboxAuto
+	}
+	cmd, sandboxTmp, err := SpawnSandboxedWith(sandbox, homeDir, opts.ProjectPath, agentPath, args...)
 	if err != nil {
 		m.mu.Unlock()
 		return nil, fmt.Errorf("failed to create sandboxed command: %w", err)

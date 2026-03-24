@@ -89,6 +89,7 @@ func (s *agentService) StartAgent(_ context.Context, req *pb.StartAgentRequest) 
 		TaskSystemPrompt: taskSystemPrompt,
 		Rows:             int(req.Rows),
 		Cols:             int(req.Cols),
+		Sandbox:          resolveSandbox(req.Sandbox, proj),
 	})
 	if err != nil {
 		return nil, err
@@ -196,6 +197,7 @@ func (s *agentService) startWildfireMode(req *pb.StartAgentRequest, projectPath 
 		TaskSystemPrompt: taskSystemPrompt,
 		Rows:             int(req.Rows),
 		Cols:             int(req.Cols),
+		Sandbox:          resolveSandbox(req.Sandbox, proj),
 	})
 	if err != nil {
 		return nil, err
@@ -237,6 +239,7 @@ func (s *agentService) startGenerateMode(req *pb.StartAgentRequest, projectPath 
 		TaskSystemPrompt: taskSystemPrompt,
 		Rows:             int(req.Rows),
 		Cols:             int(req.Cols),
+		Sandbox:          resolveSandbox(req.Sandbox, proj),
 	})
 	if err != nil {
 		return nil, err
@@ -474,6 +477,23 @@ func (s *agentService) SubscribeAgentIssues(req *pb.SubscribeAgentIssuesRequest,
 			return stream.Context().Err()
 		}
 	}
+}
+
+// resolveSandbox determines the sandbox backend to use.
+// Priority: CLI override > project setting > global default.
+func resolveSandbox(cliOverride string, proj *models.Project) string {
+	if cliOverride != "" {
+		return cliOverride
+	}
+	if proj != nil && proj.Sandbox != "" && proj.Sandbox != "sandbox-exec" {
+		return proj.Sandbox
+	}
+	// Load global settings for default
+	settings, err := config.LoadSettings()
+	if err == nil && settings != nil && settings.Defaults.DefaultSandbox != "" && settings.Defaults.DefaultSandbox != "sandbox-exec" {
+		return settings.Defaults.DefaultSandbox
+	}
+	return "auto"
 }
 
 func (s *agentService) ResumeAgent(_ context.Context, req *pb.ProjectId) (*pb.AgentStatus, error) {
